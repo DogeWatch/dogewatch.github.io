@@ -1,0 +1,32 @@
+---
+layout:     post
+title:      "Welcome to My Blog"
+subtitle:   " \"Hello World, Hello Blog\""
+date:       2015-11-18
+author:     "dogewatch"
+header-img: "img/post-bg-2015.jpg"
+tags:
+    - 生活
+---
+> "Here we go."
+
+
+
+## 前言
+
+终于开博客咯。
+
+至于为什么挂在git上，其实是没钱买VPS >_<
+    
+---
+
+## 正文
+
+之前在一个大牛的博客里看到大牛说他之所以是个大牛，是因为他每天为了更新博客，不得不去不断地发现新的东西。
+
+突然觉得博客是个好东西，为了分享，更为了。相信那句话，菜不要紧，整就行。
+
+## 后记
+
+博客的模板是照搬的<a href="https://github.com/Huxpro/huxpro.github.io">git上的一个主页。</a>
+在这也为那位博主宣传宣传，因为个人感觉挺好看的。
