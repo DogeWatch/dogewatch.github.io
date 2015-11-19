@@ -5,8 +5,8 @@
     <description></description>
     <link>http://dogewatch.github.io/</link>
     <atom:link href="http://dogewatch.github.io/feed.xml" rel="self" type="application/rss+xml" />
-    <pubDate>Thu, 19 Nov 2015 17:05:25 +0800</pubDate>
-    <lastBuildDate>Thu, 19 Nov 2015 17:05:25 +0800</lastBuildDate>
+    <pubDate>Thu, 19 Nov 2015 17:21:07 +0800</pubDate>
+    <lastBuildDate>Thu, 19 Nov 2015 17:21:07 +0800</lastBuildDate>
     <generator>Jekyll v3.0.1</generator>
     
       <item>
@@ -97,7 +97,7 @@ if (pbkdf2($alg, $Agent, $salt, $iterations, $keylen) != pbkdf2($alg, $backDoor,
 
 &lt;p&gt;搜了一发php下的pbkdf2函数发现了一个hash_pbkdf2函数，也没多想就当作是一回事了，因为php的==是弱比较，所以想着只要找俩字符串加密后与0e1相等就行了。&lt;br /&gt;
 于是就开始跑，跑出来后发现上传依然过不了，在这卡了好久。最后无奈去找客服搅基，客服说这个函数不是php的函数，他只是用php表示出来而已，囧。&lt;br /&gt;
-最后搜到这篇&lt;a hef=&quot;https://mathiasbynens.be/notes/pbkdf2-hmac&quot;&gt;文章&lt;/a&gt;，用里面提供的脚本跑出一对字符串，rois_special_user_agentaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaamipvkd&lt;br /&gt;
+最后搜到这篇&lt;a href=&quot;https://mathiasbynens.be/notes/pbkdf2-hmac&quot;&gt;文章&lt;/a&gt;，用里面提供的脚本跑出一对字符串，rois_special_user_agentaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaamipvkd&lt;br /&gt;
 3-Rfm^Bq%3BZZAcl]mS&amp;amp;eE。&lt;br /&gt;
 测试能成功上传了。然后下载提供的备份文件，打开发现是一个关于zip解压的php文件。找官网下了原生版本后diff了一下发现了一处不同点。&lt;/p&gt;
 
