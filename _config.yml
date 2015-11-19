@@ -1,6 +1,6 @@
 # Site settings
-title: Your Blog
-SEOTitle: 你的博客 | Your Blog
+title: DogeWatch's Blog
+SEOTitle: DogeWatch's Blog
 header-img: img/home-bg.jpg
 email: tqy307377196@163.com
 description: ""
@@ -43,9 +43,9 @@ kramdown:
 #disqus_username: _your_disqus_short_name_
 
 # Duoshuo settings
-duoshuo_username: huxblog
+duoshuo_username: dogewatch
 # Share component is depend on Comment so we can NOT use share only.
-duoshuo_share: true                     # set to false if you want to use Comment without Sharing
+duoshuo_share: true                    # set to false if you want to use Comment without Sharing
 
 
 
@@ -75,19 +75,19 @@ featured-condition-size: 1              # A tag will be featured if the size of 
 # Friends
 friends: [
     {
-        title: "#",
+        title: "",
         href: "#"
     },{
-        title: "Foo",
+        title: "",
         href: "#"
     },{
-        title: "Bar",
+        title: "",
         href: "#"
     },{
-        title: "Example Friends",
+        title: "",
         href: "#"
     },{
-        title: "It helps SEO",
+        title: "",
         href: "#"
     }
 ]

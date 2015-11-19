@@ -1,32 +1,34 @@
 ---
 layout:     post
 title:      "Welcome to My Blog"
-subtitle:   " \"Hello World, Hello Blog\""
-date:       2015-11-18
+subtitle:   "\"Hello World, Hello Blog\""
+date:       2015-11-19
 author:     "dogewatch"
 header-img: "img/post-bg-2015.jpg"
 tags:
     - 生活
 ---
-> "Here we go."
+> "黑喂狗。"
 
 
 
 ## 前言
 
-终于开博客咯。
+终于开博客咯，人生第一个博客。
 
-至于为什么挂在git上，其实是没钱买VPS >_<
+至于为什么挂在git上，其实是没钱买VPS >_<，先就酱吧。
     
 ---
 
 ## 正文
 
-之前在一个大牛的博客里看到大牛说他之所以是个大牛，是因为他每天为了更新博客，不得不去不断地发现新的东西。
+之前在一个大牛(貌似是pithon牛)的博客里看到他说他每天为了更新博客，不得不去不断地发现新的东西，研究新的姿势。
 
-突然觉得博客是个好东西，为了分享，更为了。相信那句话，菜不要紧，整就行。
+看了后觉得很有道理。博客这种东西，不但是为了分享自己所得，也是为了促使自己进步。相信那句话，菜不要紧，整就行。
+
+---
 
 ## 后记
 
-博客的模板是照搬的<a href="https://github.com/Huxpro/huxpro.github.io">git上的一个主页。</a>
-在这也为那位博主宣传宣传，因为个人感觉挺好看的。
+博客的模板是照搬<a href="https://github.com/Huxpro/huxpro.github.io">HUX</a>的博客。
+个人感觉挺好看的，再加上前端设计姿势缺乏又懒得动手，所以只好照搬了，顺便说一句，Jekyll真是个好东西。
