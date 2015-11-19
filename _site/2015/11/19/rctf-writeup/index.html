@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="google-site-verification" content="xBT4GhYoi5qRD5tr338pgPM5OWHHIDR6mNg1a3euekI" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="keyword"  content="">
+    <link rel="shortcut icon" href="img/favicon.ico">
+
+    <title>RCTF - DogeWatch's Blog</title>
+
+    <link rel="canonical" href="http://dogewatch.github.io/2015/11/19/rctf-writeup/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- <link href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css"> -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+
+    <!-- Hux Delete, sad but pending in China
+    <link href='http://fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic' rel='stylesheet' type='text/css'>
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/
+    css'>
+    -->
+
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <!-- ga & ba script hoook -->
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">DogeWatch's Blog</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <!-- Known Issue, found by Hux:
+            <nav>'s height woule be hold on by its content.
+            so, when navbar scale out, the <nav> will cover tags.
+            also mask any touch event of tags, unfortunately.
+        -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">Home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Tags</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        // CLOSE
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        // OPEN
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg-o.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        background-image: url('/img/home-bg-o.jpg')
+    }
+</style>
+<header class="intro-header" >
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#ctf" title="ctf">ctf</a>
+                        
+                        <a class="tag" href="/tags/#web" title="web">web</a>
+                        
+                    </div>
+                    <h1>RCTF</h1>
+                    
+                    
+                    <h2 class="subheading">web writeup</h2>
+                    
+                    <span class="meta">Posted by dogewatch on November 19, 2015</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>“here we go.”</p>
+</blockquote>
+
+<h2 id="section">前言</h2>
+
+<p>这次RCTF只搞了web题，其他题完全没时间去碰啊。。<br />
+虽然这次天枢没能进决赛，只差一名，但是大家都努力了，希望下次能有更好成绩。</p>
+
+<hr />
+
+<h2 id="web-1">web 1</h2>
+
+<p>注册登陆进去后发现有上传，随后试验各种后缀名发现只有.jpg可以，顺便一提每次上传要过验证码真是蛋疼。<br />
+随便上传个文件后发现会返回文件名和uid(这个uid一开始没发现作用，后来看了tomato大牛的题解才明白是啥用，后面再说)<br />
+，随后会在上传的页面回显文件名。于是就在这里猜测是文件名有注入。在文件名后面加单引号成功上传，再次回到上传页面发现无任何文件名回显，因此猜测是二次注入。<br />
+随后开始注入，先来一发aaaaaa’+version()+’.jpg，发现返回文件名为5.1。<br />
+<img src="/img/post/rctf-web1-1.png" alt="img" /><br />
+继续，测试select和from发现被过滤了，分别改成selselectect和frfromom可绕过，后来又发现所有的字母都不会显示，于是只能一位一位猜表名、列名和字段。</p>
+
+<pre><code>payload：'+(selselectect if((selselectect count(*) frfromom information_schema.tables)&gt;0,2,3))+'
+'+(selselectect if (1&lt;2,ascii(mid((selselectect table_name frfromom information_schema.tables limit 29,1),1,1)),2))+'
+'+(selselectect if (1&lt;2,ascii(mid((selselectect I_am_flag frfromom hello_flag_is_here limit 0,1),1,1)),2))+'
+
+</code></pre>
+
+<p>最后得到flag，!!_@m_Th.e_F!lag。</p>
+
+<p>后来看tomato的题解发现，这题在insert的时候格式是(‘文件名’,’uid’,’uid’)，拖了一晚上验证码的我看到这真是哭了，<br />
+因为做的时候也想过用这种方式注入，但是死活没成功，还是太菜了啊。</p>
+
+<hr />
+
+<h2 id="web-2">web 2</h2>
+
+<p>注册的时候发现过滤了空格，注册一个账号aaaaa’“，然后进去发现一堆赵日天，叶良辰神马的然并卵的东西，最后在改密码的时候发现了报错。<br />
+<img src="/img/post/rctf-web2-1.png" alt="img" /><br />
+明显的二次注入，用updatexml报错注入，先猜flag表，<br />
+“&amp;&amp;updatexml(0x7e,concat(0x7e,(select(flag)from(flag))),0)#，<br />
+告诉我flag is not here，真是哔了狗了。没办法，只有从表名开始猜了，因为报错注入只会返回一行，但是过滤了空格所以不能使用limit，<br />
+在这我又get了一个新的姿势，那就是用mysql的regexp正则匹配函数。直接regexp(‘flag’)找到表名，读取内容是只返回前几个字符，没办法，再次用regexp(‘RCTF’)成功读到flag。<br />
+RCTF{sql_1njecti0n_is_f4n_6666}</p>
+
+<hr />
+
+<h2 id="web-3">web 3</h2>
+
+<p>注册一个账号，改密码的时候抓包发现可以修改要改密码的用户名，改成admin后登陆进去提示not allow ip，把XFF改成127.0.0.1后成功登陆。<br />
+进去发现叫我们猜action，果断猜upload出现一个上传页面，发现没有验证码真是感动哭了。随后fuzz出可用的后缀名php4,php5。<br />
+但是仍然提示不是真正的php，根据php的这几种格式，<br />
+<code>
+&lt;?php?&gt;
+&lt;??&gt;
+&lt;script language="php"&gt;&lt;/script&gt;
+asp的&lt;%%&gt;
+</code><br />
+挨个尝试，发现script标签可以于是成功拿到flag。</p>
+
+<hr />
+
+<h2 id="web-4">web 4</h2>
+
+<p>一开始没什么头绪，后来放出提示是nosql就猜测是mongodb，使用[$ne]和[$regex]跑出账号密码，ROIS_ADMIN pas5woRd_i5_45e2884c4e5b9df49c747e1d。<br />
+登陆进去后，看源码发现上传需要先过useragent和cookie的验证。</p>
+
+<pre><code>$Agent = $_SERVER['HTTP_USER_AGENT'];
+$backDoor = $_COOKIE['backdoor'];
+$msg = json_encode("no privilege");
+$iterations = 1000;
+$salt = "roisctf";
+$alg = "sha1";
+$keylen = "20";
+if ($Agent == $backDoor || strlen($Agent) != 65) {
+    exit($msg);
+}
+if (substr($Agent,0,23) != "rois_special_user_agent") {
+    exit($msg);
+}
+if (pbkdf2($alg, $Agent, $salt, $iterations, $keylen) != pbkdf2($alg, $backDoor, $salt, $iterations, $keylen)) {
+    exit($msg);
+}
+
+</code></pre>
+
+<p>搜了一发php下的pbkdf2函数发现了一个hash_pbkdf2函数，也没多想就当作是一回事了，因为php的==是弱比较，所以想着只要找俩字符串加密后与0e1相等就行了。<br />
+于是就开始跑，跑出来后发现上传依然过不了，在这卡了好久。最后无奈去找客服搅基，客服说这个函数不是php的函数，他只是用php表示出来而已，囧。<br />
+最后搜到这篇<a hef="https://mathiasbynens.be/notes/pbkdf2-hmac">文章</a>，用里面提供的脚本跑出一对字符串，rois_special_user_agentaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaamipvkd<br />
+3-Rfm^Bq%3BZZAcl]mS&amp;eE。<br />
+测试能成功上传了。然后下载提供的备份文件，打开发现是一个关于zip解压的php文件。找官网下了原生版本后diff了一下发现了一处不同点。</p>
+
+<pre><code>
+if ($p_header['filename_len'] != 0)  {
+      $p_header['filename'] = fread($this-&gt;zip_fd, $p_header['filename_len']);
+      $preNum = substr_count($p_header['filename'], '../');
+      $prefix = str_repeat('../', $preNum);
+      $element = explode('.', str_replace($prefix, '', $p_header['filename']));
+      $fname = $prefix . md5($element[0]. 'RoisFighting'). '.' .end($element);
+      $p_header['filename'] = $fname;
+}
+
+</code></pre>
+<p>知道这是解压后对文件进行了重命名，于是尝试计算出文件名后拼接到给出的上传路径去访问发现是404。<br />
+多上传几次发现给出的路径都不一样，于是尝试构造一个解压后存放至上一级目录的zip文件，用winhex编辑zip压缩包，在里面文件名前三位改成../，成功上传得到flag。</p>
+
+<hr />
+
+<h2 id="section-1">后记</h2>
+
+<p>这次RCTF只撸了web里的四道题，后面的xss和500分的题完全没时间看了。看题解发现xss不是很难，不知道时间足够能做出来不。个人成绩依然是60多名，从今年的绿盟举办的CTF开始，陆续打了几次都是这个名次，相信积累足够技术和经验后能有进步。</p>
+
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2015/11/19/rctf-writeup"
+                    data-title="RCTF"
+                    data-url="http://dogewatch.github.io/2015/11/19/rctf-writeup/"
+                    data-images="http://dogewatch.github.io/img/home-bg-o.jpg"
+                    data-content="
+  “here we go.”
+
+
+前言
+
+这次RCTF只搞了web题，其他题完全没时间去碰啊。。
+虽然这次天枢没能进决赛，只差一名，但是大家都努力了，... | DogeWatch's Blog " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                        <li><a class="ds-douban flat" href="javascript:void(0);" data-service="douban">豆瓣</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2015/11/19/hello-git/" data-toggle="tooltip" data-placement="top" title="Welcome to My Blog">&larr; Previous Post</a>
+                    </li>
+                    
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2015/11/19/rctf-writeup"
+                        data-title="RCTF"
+                        data-url="http://dogewatch.github.io/2015/11/19/rctf-writeup/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+        				
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="#"></a></li>
+                    
+                        <li><a href="#"></a></li>
+                    
+                        <li><a href="#"></a></li>
+                    
+                        <li><a href="#"></a></li>
+                    
+                        <li><a href="#"></a></li>
+                    
+                </ul>
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User by Hux
+    var _user = 'dogewatch';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    
+
+
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/DogeWatch">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; DogeWatch's Blog 2015
+                    <br>
+                    Made by DogeWatch |
+                    <iframe
+                        style="margin-left: 2px; margin-bottom:-5px;"
+                        frameborder="0" scrolling="0" width="91px" height="20px"
+                        src="https://ghbtns.com/github-btn.html?user=DogeWatch&repo=dogewatch.github.io&type=star&count=true" >
+                    </iframe>
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- Highlight.js -->
+<script>
+    async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+        hljs.initHighlightingOnLoad();
+    })
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+<link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+<script>
+    // dynamic User by Hux
+    var _gaId = 'UA-49627206-1';
+    var _gaDomain = 'dogewatch.gihub.io';
+
+    // Originial
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', _gaId, _gaDomain);
+    ga('send', 'pageview');
+</script>
+
+
+
+<!-- Baidu Tongji -->
+
+<script>
+    // dynamic User by Hux
+    var _baId = '4cc1f2d8f3067386cc5cdb626a202900';
+
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>
