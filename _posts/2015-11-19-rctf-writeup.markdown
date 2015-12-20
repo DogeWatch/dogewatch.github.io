@@ -15,7 +15,6 @@ tags:
 ## 前言
 
 这次RCTF只搞了web题，其他题完全没时间去碰啊。。
-虽然这次天枢没能进决赛，只差一名，但是大家都努力了，希望下次能有更好成绩。
 
 ---
 
@@ -51,7 +50,7 @@ payload：'+(selselectect if((selselectect count(*) frfromom information_schema.
 "&&updatexml(0x7e,concat(0x7e,(select(flag)from(flag))),0)#，
 告诉我flag is not here，真是哔了狗了。没办法，只有从表名开始猜了，因为报错注入只会返回一行，但是过滤了空格所以不能使用limit，
 在这我又get了一个新的姿势，那就是用mysql的regexp正则匹配函数。直接regexp('flag')找到表名，读取内容是只返回前几个字符，没办法，再次用regexp('RCTF')成功读到flag。
-RCTF{sql_1njecti0n_is_f4n_6666} 
+RCTF{sql_1njecti0n_is_f4n_6666}
 
 
 ---
@@ -123,4 +122,3 @@ if ($p_header['filename_len'] != 0)  {
 ## 后记
 
 这次RCTF只撸了web里的四道题，后面的xss和500分的题完全没时间看了。看题解发现xss不是很难，不知道时间足够能做出来不。个人成绩依然是60多名，从今年的绿盟举办的CTF开始，陆续打了几次都是这个名次，相信积累足够技术和经验后能有进步。
-
