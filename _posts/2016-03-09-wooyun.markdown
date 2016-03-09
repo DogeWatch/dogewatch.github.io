@@ -1,0 +1,79 @@
+---
+layout:     post
+title:      "Wooyun Bugs"
+subtitle:   "spider"
+date:       2016-03-09
+author:     "dogewatch"
+header-img: "img/post-bg-unix-linux.jpg"
+tags:
+    - web
+---
+
+> "little little spider"
+
+## 前言
+
+最近挖漏洞挖得眼睛疼，于是想换个事做，玩玩爬虫。要问爬虫技术哪家强，当然要属scrapy。
+
+---
+
+## 正文
+
+闲话也不多说，直接上代码吧。
+
+```
+#!/usr/bin/env python
+# encoding: utf-8
+
+import scrapy
+try:
+    from scrapy.spider import Spider
+except:
+    from scrapy.spider import BaseSpider as Spider
+
+import traceback
+from wooyun.items import *
+
+class wooyunSpider(CrawlSpider):
+    name = "wooyunSpider"
+    allowed_domains = ["wooyun.org"]
+    base_url = "http://www.wooyun.org/bugs/new_public/page/"
+    start_urls = []
+   #start_urls = ['http://www.wooyun.org/bugs/new_public/page/4']
+
+    def __init__(self, *args, **kwargs):
+        begin_page = int(kwargs.get("begin", 1))
+        end_page = int(kwargs.get("end", 1848))
+        for page in xrange(begin_page, end_page+1):
+            self.start_urls.append(self.base_url + str(page))
+
+    def parse(self, response):
+        for sel in response.xpath("//table[@class='listTable']/tbody/tr"):
+            try:
+                if(len(sel.xpath("td[1]/img[@class='credit']").extract())):
+                    item = WooyunItem()
+                    item["time"] = sel.xpath("th[1]")[0].extract()
+                    item["title"] = sel.xpath("td[1]/a/text()")[0].extract()
+                    item["link"] = "http://www.wooyun.org" + sel.xpath("td[1]/a/@href")[0].extract()
+                    item["author"] = sel.xpath("th[last()]/a/@title")[0].extract()
+                    item["credit"] = sel.xpath("td[1]/img[@class='credit']").extract()
+                    print type(item["credit"])
+                else:
+                    continue
+            except IndexError as e:
+                print(traceback.print_exc())
+                continue
+
+            yield item
+```
+最开始爬下来的数据并不是按照时间排序的，需要另些个脚本进行排序，这里就不贴代码了。
+
+最终效果如图：
+![img](/img/post/wooyun-bugs.png)
+
+---
+
+## 后记
+
+后面想写个升级版来着，把所有的内容离线下来，然后想了想我的流量，算了 >_<
+还是继续看php挖漏洞好了。
