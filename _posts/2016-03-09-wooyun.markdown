@@ -66,7 +66,7 @@ class wooyunSpider(CrawlSpider):
 
             yield item
 ```
-最开始爬下来的数据并不是按照时间排序的，需要另些个脚本进行排序，这里就不贴代码了。
+最开始爬下来的数据并不是按照时间排序的，需要另写个脚本进行排序，这里就不贴代码了。
 
 最终效果如图：
 ![img](/img/post/wooyun-bugs.png)

