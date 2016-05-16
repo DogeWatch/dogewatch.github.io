@@ -1,0 +1,34 @@
+---
+layout:		post
+title:		CORS造成的XSS
+subtitle:	反射型XSS
+data:		2016-05-16
+author:		"dogewatch"
+header-img:	"img/post-bg-js-version.jpg"
+tags:
+    - web
+---
+
+> "xxx"
+
+## 正文
+
+CORS又叫跨域资源共享，意思是一个页面将另一个页面的资源引用到自己的环境中，它常常用在ajax异步请求，以实现局部刷新页面等功能。但是当攻击者可以控制引用地址的参数时，就可能造成反射型xss。
+
+以这个<a href=http://brutelogic.com.br/tests/cors>页面</a>为例。这个页面将异步加载的链接放在url的后面，我们将其替换为其他的链接，如下图所示：
+![img](/img/post/corsxss-1.png)
+当前页面向baidu.com发起了异步请求，但是因为SOP头的原因导致请求失败。
+于是我们可以在自己的服务器上写一个页面，代码如下：
+
+```
+<?php header("Access-Control-Allow-Origin:*");?>
+<img src=1 onerror=alert(document.domain)>
+```
+
+如图：
+![img](/img/post/corsxss-2.png)
+可以看到被引用的页面的js代码加载的是当前页面的环境。
+
+下面展示一个实战案例，是在一篇老外的博客上看到的，大名鼎鼎的Facebook也存在这种漏洞(PS:不过很老了，是10年的案例)。
+![img](/img/post/corsxss-3.png)
+危害就不多说了，能够看好友，发状态，蠕虫扩散，截图等等。
