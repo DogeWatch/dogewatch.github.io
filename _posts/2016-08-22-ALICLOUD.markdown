@@ -217,7 +217,7 @@ array(1) {
   }
 }
 ```
-但是这里还有个问题需要解决的就是怎么去操作session。在php中，如果上传文件，可以通过session获取上传进度，正如http://php.net/manual/zh/session.upload-progress.php所说，如果post一个名为PHP_SESSION_UPLOAD_PROGRESS的变量，就可以将filename的值赋到session中。先做一个测试，写一个上传页面
+但是这里还有个问题需要解决的就是怎么去操作session。在php中，如果上传文件，可以通过session获取上传进度，正如 http://php.net/manual/zh/session.upload-progress.php 所说，如果post一个名为PHP_SESSION_UPLOAD_PROGRESS的变量，就可以将filename的值赋到session中。先做一个测试，写一个上传页面
 
 ```
 <form action="http://121.42.149.60/68b329da9893e34099c7d8ad5cb9c940/index.php?" method="POST" enctype="multipart/form-data">
@@ -236,14 +236,14 @@ flag文件就在当前目录下，先用file_get_contents发现读不了，试�
 # no7
 
 简历都发过去了才把这题做出来，不过无所谓了。
-一开始扫端口，扫目录，扫c段都没有收获，卡了很久。后来发现bbscan居然不支持形如http://1.1.1.1/asdfasdf这样的url，它会自动提取出域名/ip，然后往后面添加字典的内容。改了改源码后让它直接在url后面扫描终于扫出了个cvs
+一开始扫端口，扫目录，扫c段都没有收获，卡了很久。后来发现bbscan居然不支持形如http://1.1.1.1/asdfasdf 这样的url，它会自动提取出域名/ip，然后往后面添加字典的内容。改了改源码后让它直接在url后面扫描终于扫出了个cvs
 
 ```
 /index.php/1.1.1.1/Tue Jul 31 05:25:16 2012//
 D/ColorTestPage////
 ```
-访问http://121.42.161.140/dac8dac5f0210825338175d48f0279cb/ColorTestPage/可以看到一个普通的web页面，不是什么cms。
-源码中发现这样的链接 http://121.42.161.140/dac8dac5f0210825338175d48f0279cb/ColorTestPage/index.php?style=cute.tpl，style的值变化可以看到页面的样式发生了改变，于是猜测这里就是加载样式文件的地方。
+访问http://121.42.161.140/dac8dac5f0210825338175d48f0279cb/ColorTestPage/ 可以看到一个普通的web页面，不是什么cms。
+源码中发现这样的链接 http://121.42.161.140/dac8dac5f0210825338175d48f0279cb/ColorTestPage/index.php?style=cute.tpl ，style的值变化可以看到页面的样式发生了改变，于是猜测这里就是加载样式文件的地方。
 既然能加载样式文件是不是就可以读php源码了，用php://filter试了下发现果然可以：
 ![img](/img/post/ali-13.png)
 解base64结果如下：
