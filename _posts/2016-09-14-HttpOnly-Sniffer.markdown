@@ -86,4 +86,4 @@ chrome.cookies.onChanged.addListener(function(){getcookie();});
 
 # 后记
 
-后续想要添加的功能就是劫持ajax函数看ajax数据中是否有cookie值以及监测url中有没有泄漏这些信息
+后续想要添加的功能就是劫持ajax函数看ajax数据中是否有cookie值以及监测url中有没有泄漏这些信息.
