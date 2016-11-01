@@ -1,6 +1,6 @@
 ---
 layout:		post
-title:		By Pass CSP
+title:		Bypass CSP
 data:		2016-11-01
 author:		"dogewatch"
 header-img:	"img/post-bg-2015.jpg"
@@ -8,7 +8,7 @@ tags:
     - web
 ---
 
-> CSP is not safe enough
+> Safe is depending users
 
 # CSP
 
