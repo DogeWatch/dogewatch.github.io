@@ -3,7 +3,7 @@ title: DogeWatch's Blog
 SEOTitle: DogeWatch's Blog
 header-img: img/home-bg.jpg
 email: tqy307377196@163.com
-description: ""
+description: "web狗，想转bin"
 keyword: ""
 url: "http://dogewatch.github.io"              # your host, for absolute URL
 baseurl: ""                             # for example, '/blog' if your blog hosted on 'host/blog'
@@ -27,6 +27,9 @@ paginate: 10
 exclude: ["less","node_modules","Gruntfile.js","package.json","README.md"]
 anchorjs: true                          # if you want to customize anchor. check out line:181 of `post.html`
 
+# Gems
+# from PR#40, to support local preview for Jekyll 3.0
+gems: [jekyll-paginate]
 
 
 # Markdown settings
@@ -52,7 +55,7 @@ duoshuo_share: true                    # set to false if you want to use Comment
 
 # Analytics settings
 # Baidu Analytics
-ba_track_id: 4cc1f2d8f3067386cc5cdb626a202900
+#ba_track_id: 4cc1f2d8f3067386cc5cdb626a202900
 # Google Analytics
 ga_track_id: 'UA-49627206-1'            # Format: UA-xxxxxx-xx
 ga_domain: dogewatch.gihub.io
