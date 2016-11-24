@@ -3,7 +3,7 @@ layout: page
 description: "想撬锁的看门狗"
 ---
 
-{% for post in site.posts %}
+{% for post in paginator.posts %}
 <div class="post-preview">
     <a href="{{ post.url | prepend: site.baseurl }}">
         <h2 class="post-title">
