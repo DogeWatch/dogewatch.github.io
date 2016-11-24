@@ -7,6 +7,7 @@ author:		"dogewatch"
 header-img:	"img/home-bg-o.jpg"
 tags:
     - web
+    - 漏洞
 ---
 
 > web狗也能弹计算器
