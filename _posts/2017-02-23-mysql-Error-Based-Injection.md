@@ -223,6 +223,7 @@ mysql> select * from test;
 | jack  | 1+1      |
 | tom   | 1        |
 | candy | 1        |
+
 当这个操作遇到rand(0)\*2时，就会发生错误，其原因在于rand(0)是个稳定的序列，我们计算两次rand(0)：
 
 ```
