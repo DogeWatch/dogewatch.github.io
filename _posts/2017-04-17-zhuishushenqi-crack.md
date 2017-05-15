@@ -1,7 +1,7 @@
 ---
 layout:		post
 title:		"追书神器破解手记"
-subtitle:	"android 学习"
+subtitle:	"android 学习(一)"
 date:		2017-04-17
 author:	"dogewatch"
 header-img:	"img/post-bg-android.jpg"
