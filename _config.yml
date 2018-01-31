@@ -6,7 +6,8 @@ email: tqy307377196@163.com
 description: "web狗，想转bin"
 keyword: ""
 url: "http://dogewatch.github.io"              # your host, for absolute URL
-baseurl: ""                             # for example, '/blog' if your blog hosted on 'host/blog'
+baseurl: ""
+date: 2018                             # for example, '/blog' if your blog hosted on 'host/blog'
 
 
 

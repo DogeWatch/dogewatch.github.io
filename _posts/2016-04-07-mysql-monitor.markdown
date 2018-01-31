@@ -28,7 +28,7 @@ set global log_output='table';
 
 直接上代码：
 
-```
+```php+HTML
 <!DOCTYPE html>
 <html>
 <head>
